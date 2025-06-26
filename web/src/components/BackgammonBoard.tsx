@@ -1,6 +1,6 @@
-'use client';
+'use client'
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 
 // Game state type definitions
 type Player = 'white' | 'black';
@@ -9,7 +9,7 @@ type GameState = {
     bar: { white: number; black: number }; // pieces on the bar
     home: { white: number; black: number }; // pieces borne off
     currentPlayer: Player;
-    dice: [number, number] | null;
+    dice: number[] | null;
     usedDice: boolean[]; // track which dice have been used
     gamePhase: 'setup' | 'playing' | 'finished';
     possibleMoves: Array<{ from: number; to: number; dice: number }>;
@@ -55,6 +55,7 @@ const initialGameState: GameState = {
 const BackgammonBoard: React.FC = () => {
     const [gameState, setGameState] = useState<GameState>(initialGameState);
     const [selectedPoint, setSelectedPoint] = useState<number | null>(null);
+    const [draggedPiece, setDraggedPiece] = useState<{ fromPoint: number; player: Player } | null>(null);
 
     // Helper function to check if a player can bear off
     const canBearOff = (player: Player, board: number[]): boolean => {
@@ -74,31 +75,31 @@ const BackgammonBoard: React.FC = () => {
     };
 
     // Calculate all possible moves for the current player
-    const calculatePossibleMoves = useCallback((gameState: GameState): Array<{ from: number; to: number; dice: number }> => {
+    const calculatePossibleMoves = useCallback((state: GameState): Array<{ from: number; to: number; dice: number }> => {
         const moves: Array<{ from: number; to: number; dice: number }> = [];
 
-        if (!gameState.dice || gameState.gamePhase !== 'playing') return moves;
+        if (!state.dice || state.gamePhase !== 'playing') return moves;
 
-        const availableDice = gameState.dice.filter((_, index) => !gameState.usedDice[index]);
-        const direction = gameState.currentPlayer === 'white' ? -1 : 1;
-        const canBearOffNow = canBearOff(gameState.currentPlayer, gameState.board);
+        const availableDice = state.dice.filter((_, index) => !state.usedDice[index]);
+        const direction = state.currentPlayer === 'white' ? -1 : 1;
+        const canBearOffNow = canBearOff(state.currentPlayer, state.board);
 
         // Check if player has pieces on the bar that must be moved first
-        const hasBarPieces = gameState.bar[gameState.currentPlayer] > 0;
+        const hasBarPieces = state.bar[state.currentPlayer] > 0;
 
         if (hasBarPieces) {
             // Must move from bar first
-            const entryPoint = gameState.currentPlayer === 'white' ? 23 : 0;
+            const entryPoint = state.currentPlayer === 'white' ? 23 : 0;
 
             availableDice.forEach(dice => {
-                const targetPoint = gameState.currentPlayer === 'white' ?
+                const targetPoint = state.currentPlayer === 'white' ?
                     entryPoint + dice * direction :
                     entryPoint + dice * (-direction);
 
                 if (targetPoint >= 0 && targetPoint < 24) {
-                    const targetPieces = gameState.board[targetPoint];
-                    const isBlocked = (gameState.currentPlayer === 'white' && targetPieces < -1) ||
-                        (gameState.currentPlayer === 'black' && targetPieces > 1);
+                    const targetPieces = state.board[targetPoint];
+                    const isBlocked = (state.currentPlayer === 'white' && targetPieces < -1) ||
+                        (state.currentPlayer === 'black' && targetPieces > 1);
 
                     if (!isBlocked) {
                         moves.push({ from: -1, to: targetPoint, dice }); // -1 represents bar
@@ -108,9 +109,9 @@ const BackgammonBoard: React.FC = () => {
         } else {
             // Normal moves
             for (let from = 0; from < 24; from++) {
-                const pieces = gameState.board[from];
-                const isCurrentPlayerPiece = (gameState.currentPlayer === 'white' && pieces > 0) ||
-                    (gameState.currentPlayer === 'black' && pieces < 0);
+                const pieces = state.board[from];
+                const isCurrentPlayerPiece = (state.currentPlayer === 'white' && pieces > 0) ||
+                    (state.currentPlayer === 'black' && pieces < 0);
 
                 if (!isCurrentPlayerPiece) continue;
 
@@ -118,17 +119,17 @@ const BackgammonBoard: React.FC = () => {
                     let to = from + (dice * direction);
 
                     // Check for bearing off
-                    if (canBearOffNow && ((gameState.currentPlayer === 'white' && to < 0) ||
-                        (gameState.currentPlayer === 'black' && to >= 24))) {
+                    if (canBearOffNow && ((state.currentPlayer === 'white' && to < 0) ||
+                        (state.currentPlayer === 'black' && to >= 24))) {
                         moves.push({ from, to: -2, dice }); // -2 represents home
                         return;
                     }
 
                     // Normal move
                     if (to >= 0 && to < 24) {
-                        const targetPieces = gameState.board[to];
-                        const isBlocked = (gameState.currentPlayer === 'white' && targetPieces < -1) ||
-                            (gameState.currentPlayer === 'black' && targetPieces > 1);
+                        const targetPieces = state.board[to];
+                        const isBlocked = (state.currentPlayer === 'white' && targetPieces < -1) ||
+                            (state.currentPlayer === 'black' && targetPieces > 1);
 
                         if (!isBlocked) {
                             moves.push({ from, to, dice });
@@ -142,10 +143,12 @@ const BackgammonBoard: React.FC = () => {
     }, []);
 
     // Update possible moves whenever game state changes
-    React.useEffect(() => {
+    useEffect(() => {
         const possibleMoves = calculatePossibleMoves(gameState);
-        setGameState(prev => ({ ...prev, possibleMoves }));
-    }, [gameState.dice, gameState.usedDice, gameState.board, gameState.bar, gameState.currentPlayer, calculatePossibleMoves]);
+        if (JSON.stringify(possibleMoves) !== JSON.stringify(gameState.possibleMoves)) {
+            setGameState(prev => ({ ...prev, possibleMoves }));
+        }
+    }, [gameState.dice, gameState.usedDice, gameState.board, gameState.bar, gameState.currentPlayer, calculatePossibleMoves, gameState.possibleMoves]);
 
     const isValidMove = (from: number, to: number, dice: number): boolean => {
         return gameState.possibleMoves.some(move =>
@@ -243,18 +246,15 @@ const BackgammonBoard: React.FC = () => {
         const dice2 = Math.floor(Math.random() * 6) + 1;
 
         // Handle doubles (same number on both dice)
-        const diceArray: [number, number] = dice1 === dice2 ?
-            [dice1, dice1, dice1, dice1] as any : [dice1, dice2];
+        const diceArray = dice1 === dice2 ? [dice1, dice1, dice1, dice1] : [dice1, dice2];
 
         setGameState(prev => ({
             ...prev,
             dice: diceArray,
-            usedDice: dice1 === dice2 ? [false, false, false, false] : [false, false],
+            usedDice: new Array(diceArray.length).fill(false),
             gamePhase: 'playing'
         }));
     };
-
-    const [draggedPiece, setDraggedPiece] = useState<{ fromPoint: number; player: Player } | null>(null);
 
     const handleDragStart = (e: React.DragEvent, pointIndex: number) => {
         const pieces = gameState.board[pointIndex];
@@ -277,34 +277,6 @@ const BackgammonBoard: React.FC = () => {
         setSelectedPoint(pointIndex);
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', '');
-
-        // Create a custom drag image
-        const dragImage = document.createElement('div');
-        dragImage.style.width = '32px';
-        dragImage.style.height = '32px';
-        dragImage.style.borderRadius = '50%';
-        dragImage.style.border = '2px solid';
-        dragImage.style.position = 'absolute';
-        dragImage.style.top = '-1000px'; // Hide off-screen
-
-        if (player === 'white') {
-            dragImage.style.backgroundColor = 'white';
-            dragImage.style.borderColor = '#1f2937';
-        } else {
-            dragImage.style.backgroundColor = '#1f2937';
-            dragImage.style.borderColor = 'white';
-        }
-
-        document.body.appendChild(dragImage);
-        e.dataTransfer.setDragImage(dragImage, 16, 16);
-
-        setTimeout(() => {
-            if (document.body.contains(dragImage)) {
-                document.body.removeChild(dragImage);
-            }
-        }, 0);
-
-        document.body.style.userSelect = 'none';
     };
 
     const handleBarDragStart = (e: React.DragEvent, player: Player) => {
@@ -324,34 +296,6 @@ const BackgammonBoard: React.FC = () => {
         setSelectedPoint(-1);
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', '');
-
-        // Create drag image for bar piece
-        const dragImage = document.createElement('div');
-        dragImage.style.width = '32px';
-        dragImage.style.height = '32px';
-        dragImage.style.borderRadius = '50%';
-        dragImage.style.border = '2px solid';
-        dragImage.style.position = 'absolute';
-        dragImage.style.top = '-1000px';
-
-        if (player === 'white') {
-            dragImage.style.backgroundColor = 'white';
-            dragImage.style.borderColor = '#1f2937';
-        } else {
-            dragImage.style.backgroundColor = '#1f2937';
-            dragImage.style.borderColor = 'white';
-        }
-
-        document.body.appendChild(dragImage);
-        e.dataTransfer.setDragImage(dragImage, 16, 16);
-
-        setTimeout(() => {
-            if (document.body.contains(dragImage)) {
-                document.body.removeChild(dragImage);
-            }
-        }, 0);
-
-        document.body.style.userSelect = 'none';
     };
 
     const handleDragOver = (e: React.DragEvent) => {
@@ -396,7 +340,6 @@ const BackgammonBoard: React.FC = () => {
     const handleDragEnd = () => {
         setDraggedPiece(null);
         setSelectedPoint(null);
-        document.body.style.userSelect = 'auto';
     };
 
     const handlePointClick = (pointIndex: number) => {
@@ -468,7 +411,7 @@ const BackgammonBoard: React.FC = () => {
         const hasValidMoves = gameState.possibleMoves.some(move => move.from === pointIndex);
         const canDrag = isCurrentPlayerPiece && hasValidMoves && gameState.gamePhase === 'playing';
 
-        // Create piece elements - ALL pieces are now draggable, not just the top one
+        // Create piece elements
         const pieceElements = [];
         const maxVisible = 5;
 
@@ -489,7 +432,7 @@ const BackgammonBoard: React.FC = () => {
             );
         }
 
-        // Add overflow indicator if more than 5 pieces - also draggable
+        // Add overflow indicator if more than 5 pieces
         if (absCount > maxVisible) {
             pieceElements.push(
                 <div
@@ -694,8 +637,21 @@ const BackgammonBoard: React.FC = () => {
                     {renderHome('black')}
                 </div>
             </div>
+            
+            {/* Instructions */}
             <div className="mt-6 p-4 bg-white rounded-lg shadow-lg max-w-2xl">
+                <h3 className="text-lg font-bold mb-2">How to Play:</h3>
+                <ul className="text-sm space-y-1">
+                    <li>• Click "Roll Dice" to start your turn</li>
+                    <li>• Click on a piece to select it, then click destination</li>
+                    <li>• Or drag and drop pieces to move them</li>
+                    <li>• Must move pieces from the bar first if any are there</li>
+                    <li>• Get all pieces to your home area to bear off</li>
+                    <li>• First player to bear off all 15 pieces wins!</li>
+                </ul>
             </div>
         </div>
     );
-}
+};
+
+export default BackgammonBoard;
