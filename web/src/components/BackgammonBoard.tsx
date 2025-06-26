@@ -2,6 +2,15 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 
+interface DebugEvent {
+    [key: string]: any;
+}
+
+const onDebug = (evt: DebugEvent): void => {
+    console.log(evt);
+    debugger;
+};
+
 // Game state type definitions
 type Player = 'white' | 'black';
 type GameState = {
@@ -640,7 +649,7 @@ const BackgammonBoard: React.FC = () => {
             
             {/* Instructions */}
             <div className="mt-6 p-4 bg-white rounded-lg shadow-lg max-w-2xl">
-                <h3 className="text-lg font-bold mb-2">How to Play:</h3>
+                <h3 className="text-lg font-bold mb-2" onContextMenu={onDebug}>How to Play:</h3>
                 <ul className="text-sm space-y-1">
                     <li>• Click "Roll Dice" to start your turn</li>
                     <li>• Click on a piece to select it, then click destination</li>
