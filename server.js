@@ -156,7 +156,7 @@ io.on('connection', (socket) => {
   // Instead of sending the full newState, send a move object and let the server update state and roll dice
   socket.on('makeMove', ({ roomId, move }) => {
     const state = games[roomId];
-    if (!state) return;
+    if (!state || !move) return;
     // move: { from, to, dice }
     const { from, to, dice } = move;
     const player = state.currentPlayer;
