@@ -28,30 +28,10 @@ type GameState = {
 // Initial checker locations
 const initialGameState: GameState = {
     board: [
-        0,   // point 1 (black home board)
-        0,   // point 2
-        0,   // point 3
-        0,   // point 4
-        0,   // point 5
-        -5,  // point 6 (5 black pieces)
-        0,   // point 7
-        -3,  // point 8 (3 black pieces)
-        0,   // point 9
-        0,   // point 10
-        0,   // point 11
-        5,   // point 12 (5 white pieces)
-        -5,  // point 13 (5 black pieces)
-        0,   // point 14
-        0,   // point 15
-        0,   // point 16
-        3,   // point 17 (3 white pieces)
-        0,   // point 18
-        5,   // point 19 (5 white pieces)
-        0,   // point 20
-        0,   // point 21
-        0,   // point 22
-        0,   // point 23
-        2,   // point 24 (2 white pieces)
+        -2, 0, 0, 0, 0, 5,     // 1-6: 2 black on 1, 5 white on 6
+        0, 3, 0, 0, 0, -5,     // 7-12: 3 white on 8, 5 black on 12
+        5, 0, 0, 0, -3, 0,      // 13-18: 5 white on 13
+        -5, 0, 0, 0, 0, 2     // 19-24: 3 black on 17, 5 black on 19, 2 white on 24
     ],
     bar: { white: 0, black: 0 },
     home: { white: 0, black: 0 },
@@ -95,7 +75,7 @@ const BackgammonBoard: React.FC = () => {
         if (!state.dice || state.gamePhase !== 'playing') return moves;
 
         const availableDice = state.dice.filter((_, index) => !state.usedDice[index]);
-        const direction = state.currentPlayer === 'white' ? 1 : -1;
+        const direction = state.currentPlayer === 'white' ? -1 : 1;
         const canBearOffNow = canBearOff(state.currentPlayer, state.board);
 
         // Check if player has pieces on the bar that must be moved first
@@ -103,18 +83,17 @@ const BackgammonBoard: React.FC = () => {
 
         if (hasBarPieces) {
             // Must move from bar first
-            const entryPoint = state.currentPlayer === 'white' ? 23 : 0;
-
             availableDice.forEach(dice => {
-                const targetPoint = state.currentPlayer === 'white' ?
-                    entryPoint + dice * direction :
-                    entryPoint + dice * (-direction);
-
+                let targetPoint: number;
+                if (state.currentPlayer === 'white') {
+                    targetPoint = 24 - dice; // white enters on 24,23,22,21,20,19 (indices 23..18)
+                } else {
+                    targetPoint = dice - 1; // black enters on 1,2,3,4,5,6 (indices 0..5)
+                }
                 if (targetPoint >= 0 && targetPoint < 24) {
                     const targetPieces = state.board[targetPoint];
                     const isBlocked = (state.currentPlayer === 'white' && targetPieces < -1) ||
                         (state.currentPlayer === 'black' && targetPieces > 1);
-
                     if (!isBlocked) {
                         moves.push({ from: -1, to: targetPoint, dice }); // -1 represents bar
                     }
@@ -192,11 +171,13 @@ const BackgammonBoard: React.FC = () => {
             const diceIndex = prev.dice!.indexOf(dice);
             const newUsedDice = [...prev.usedDice];
 
+            // Track if we already removed the checker from the stack
+            let alreadyRemovedFrom = false;
+
             // Remove checker from correct position in stack
             if (checkerIndex !== undefined && from >= 0) {
                 const absCount = Math.abs(newBoard[from]);
                 if (absCount > 1) {
-                    // Remove one checker from the stack
                     if (newBoard[from] > 0) {
                         newBoard[from] -= 1;
                     } else {
@@ -205,6 +186,7 @@ const BackgammonBoard: React.FC = () => {
                 } else {
                     newBoard[from] = 0;
                 }
+                alreadyRemovedFrom = true;
             }
 
             // Handle move from bar
@@ -229,18 +211,29 @@ const BackgammonBoard: React.FC = () => {
             }
             // Handle bearing off
             else if (to === -2) {
+                if (!alreadyRemovedFrom) {
+                    if (prev.currentPlayer === 'white') {
+                        newBoard[from] -= 1;
+                    } else {
+                        newBoard[from] += 1;
+                    }
+                }
                 if (prev.currentPlayer === 'white') {
-                    newBoard[from] -= 1;
                     newHome.white += 1;
                 } else {
-                    newBoard[from] += 1;
                     newHome.black += 1;
                 }
             }
             // Normal move
             else {
+                if (!alreadyRemovedFrom) {
+                    if (prev.currentPlayer === 'white') {
+                        newBoard[from] -= 1;
+                    } else {
+                        newBoard[from] += 1;
+                    }
+                }
                 if (prev.currentPlayer === 'white') {
-                    newBoard[from] -= 1;
                     if (newBoard[to] === -1) {
                         newBoard[to] = 1;
                         newBar.black += 1;
@@ -248,7 +241,6 @@ const BackgammonBoard: React.FC = () => {
                         newBoard[to] += 1;
                     }
                 } else {
-                    newBoard[from] += 1;
                     if (newBoard[to] === 1) {
                         newBoard[to] = -1;
                         newBar.white += 1;
@@ -259,7 +251,17 @@ const BackgammonBoard: React.FC = () => {
             }
 
             // Mark dice as used
-            newUsedDice[diceIndex] = true;
+            // Find the first unused die with the correct value
+            let dieToUse = -1;
+            for (let i = 0; i < newUsedDice.length; i++) {
+                if (!newUsedDice[i] && prev.dice && prev.dice[i] === dice) {
+                    dieToUse = i;
+                    break;
+                }
+            }
+            if (dieToUse !== -1) {
+                newUsedDice[dieToUse] = true;
+            }
 
             // Check if turn is complete (all dice used or no more moves possible)
             const turnComplete = newUsedDice.every(used => used);
@@ -524,6 +526,15 @@ const BackgammonBoard: React.FC = () => {
         if (selectedPoint === pointIndex) return 'ring-4 ring-blue-400';
         if (dragOverPoint === pointIndex) return 'ring-4 ring-purple-400 bg-purple-100';
 
+        // Only highlight valid drop targets when dragging from the bar
+        if (draggedPiece && draggedPiece.fromPoint === -1) {
+            const canMoveTo = gameState.possibleMoves.some(move =>
+                move.from === -1 && move.to === pointIndex
+            );
+            if (canMoveTo) return 'ring-2 ring-green-400 bg-green-100';
+            return '';
+        }
+
         if (selectedPoint !== null || draggedPiece) {
             const fromPoint = draggedPiece ? draggedPiece.fromPoint : selectedPoint;
             const canMoveTo = gameState.possibleMoves.some(move =>
@@ -549,6 +560,7 @@ const BackgammonBoard: React.FC = () => {
         if (absCount === 0) {
             return (
                 <div
+                    key={`point-${pointIndex}`}
                     className={`w-12 h-40 ${pointIndex % 2 === 0 ? 'bg-amber-600' : 'bg-amber-800'
                         } ${isTopRow ? 'flex flex-col' : 'flex flex-col-reverse'
                         } items-center justify-start p-1 cursor-pointer hover:bg-yellow-400 transition-colors ${highlight}`}
@@ -557,56 +569,74 @@ const BackgammonBoard: React.FC = () => {
                     onDragLeave={handleDragLeave}
                     onDrop={(e) => handleDrop(e, pointIndex)}
                 >
-                    <div className="text-xs text-white mt-auto font-bold">
-                        {pointIndex + 1}
-                    </div>
+                    {/* Checker area only, no label here */}
                 </div>
             );
         }
 
-        // Create piece elements with proper spacing
+        // Create piece elements with proper spacing and alignment
         const pieceElements = [];
         const maxVisible = 5;
         const actualVisible = Math.min(absCount, maxVisible);
-
+        const availableHeight = 160; // px
+        const checkerSize = 32; // px
+        let overlap = 0;
+        if (actualVisible > 1) {
+            const neededHeight = checkerSize * actualVisible;
+            if (neededHeight > availableHeight) {
+                overlap = (neededHeight - availableHeight) / (actualVisible - 1);
+            } else {
+                overlap = 0;
+            }
+        }
         for (let i = 0; i < actualVisible; i++) {
-            const isTopPiece = i === actualVisible - 1;
-            // All checkers are visually draggable
             const isBeingDragged = canDrag && draggingPointIndex === pointIndex && draggingCheckerIndex === i;
+            // For top row, stack from top edge; for bottom row, stack from bottom edge
+            const pos = isTopRow
+                ? i * (checkerSize - overlap)
+                : i * (checkerSize - overlap);
             pieceElements.push(
                 <div
                     key={i}
                     draggable={canDrag}
                     onDragStart={(e) => handleDragStart(e, pointIndex, i)}
                     onDragEnd={handleDragEnd}
-                    className={`w-8 h-8 rounded-full border-2 ${player === 'white'
+                    className={`absolute left-1/2 -translate-x-1/2 w-8 h-8 rounded-full border-2 ${player === 'white'
                         ? 'bg-white border-gray-800'
                         : 'bg-gray-800 border-white'
                         } select-none transition-transform ${canDrag ? 'cursor-move hover:scale-110 z-10' : 'cursor-pointer'} ${isBeingDragged ? 'invisible' : ''}`}
                     style={{
                         userSelect: 'none',
-                        marginTop: i === 0 ? '0' : '-4px'
+                        height: checkerSize,
+                        width: checkerSize,
+                        top: isTopRow ? pos : undefined,
+                        bottom: !isTopRow ? pos : undefined
                     }}
                 />
             );
         }
-
         // Add overflow indicator if more than 5 pieces
         if (absCount > maxVisible) {
+            const i = actualVisible;
+            const pos = isTopRow
+                ? i * (checkerSize - overlap)
+                : i * (checkerSize - overlap);
             pieceElements.push(
                 <div
-                    key="overflow"
+                    key={`overflow-${pointIndex}`}
                     draggable={canDrag}
                     onDragStart={(e) => handleDragStart(e, pointIndex, actualVisible)}
                     onDragEnd={handleDragEnd}
-                    className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold ${player === 'white'
+                    className={`absolute left-1/2 -translate-x-1/2 w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold ${player === 'white'
                         ? 'bg-white border-gray-800 text-gray-800'
                         : 'bg-gray-800 border-white text-white'
-                        } select-none transition-transform ${canDrag ? 'cursor-move hover:scale-110 z-10' : 'cursor-pointer'
-                        }`}
+                        } select-none transition-transform ${canDrag ? 'cursor-move hover:scale-110 z-10' : 'cursor-pointer'}`}
                     style={{
                         userSelect: 'none',
-                        marginTop: '-4px'
+                        height: checkerSize,
+                        width: checkerSize,
+                        top: isTopRow ? pos : undefined,
+                        bottom: !isTopRow ? pos : undefined
                     }}
                 >
                     +{absCount - maxVisible}
@@ -616,73 +646,25 @@ const BackgammonBoard: React.FC = () => {
 
         return (
             <div
+                key={`point-${pointIndex}`}
                 className={`w-12 h-40 ${pointIndex % 2 === 0 ? 'bg-amber-600' : 'bg-amber-800'
                     } ${isTopRow ? 'flex flex-col' : 'flex flex-col-reverse'
-                    } items-center justify-start p-1 cursor-pointer hover:bg-yellow-400 transition-colors ${highlight}`}
+                    } items-center justify-start p-1 cursor-pointer hover:bg-yellow-400 transition-colors ${highlight} relative`}
                 onClick={() => handlePointClick(pointIndex)}
                 onDragOver={(e) => handleDragOver(e, pointIndex)}
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, pointIndex)}
+                style={{ overflow: 'hidden' }}
             >
-                <div className={`flex flex-col items-center ${isTopRow ? '' : 'flex-col-reverse'}`}>
+                <div style={{ position: 'relative', width: checkerSize, height: availableHeight }}>
                     {pieceElements}
                 </div>
-                <div className="text-xs text-white mt-auto font-bold">
-                    {pointIndex + 1}
-                </div>
+                {/* No label here */}
             </div>
         );
     };
 
-    const renderBar = () => {
-        const whiteOnBar = gameState.bar.white > 0;
-        const blackOnBar = gameState.bar.black > 0;
-        const currentPlayerOnBar = gameState.bar[gameState.currentPlayer] > 0;
-        const hasValidBarMoves = gameState.possibleMoves.some(move => move.from === -1);
-        const canDragFromBar = currentPlayerOnBar && hasValidBarMoves && gameState.gamePhase === 'playing';
-
-        return (
-            <div
-                className={`w-16 h-40 bg-amber-900 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors ${selectedPoint === -1 ? 'ring-4 ring-blue-400' : ''
-                    } ${currentPlayerOnBar ? 'hover:bg-amber-700' : ''}`}
-                onClick={handleBarClick}
-                onDragOver={(e) => handleDragOver(e)}
-                onDragLeave={handleDragLeave}
-                onDrop={(e) => handleDrop(e, -1)}
-            >
-                <div className="text-white text-xs font-bold">BAR</div>
-                {blackOnBar && (
-                    <div className="flex flex-col items-center">
-                        <div
-                            draggable={canDragFromBar && gameState.currentPlayer === 'black'}
-                            onDragStart={(e) => canDragFromBar && gameState.currentPlayer === 'black' ? handleBarDragStart(e, 'black') : e.preventDefault()}
-                            onDragEnd={handleDragEnd}
-                            className={`w-8 h-8 rounded-full bg-gray-800 border-2 border-white select-none transition-transform ${canDragFromBar && gameState.currentPlayer === 'black' ? 'cursor-move hover:scale-110' : ''}`}
-                            style={{ userSelect: 'none' }}
-                        />
-                        {gameState.bar.black > 1 && (
-                            <div className="text-white text-xs font-bold">×{gameState.bar.black}</div>
-                        )}
-                    </div>
-                )}
-                {whiteOnBar && (
-                    <div className="flex flex-col items-center">
-                        <div
-                            draggable={canDragFromBar && gameState.currentPlayer === 'white'}
-                            onDragStart={(e) => canDragFromBar && gameState.currentPlayer === 'white' ? handleBarDragStart(e, 'white') : e.preventDefault()}
-                            onDragEnd={handleDragEnd}
-                            className={`w-8 h-8 rounded-full bg-white border-2 border-gray-800 select-none transition-transform ${canDragFromBar && gameState.currentPlayer === 'white' ? 'cursor-move hover:scale-110' : ''}`}
-                            style={{ userSelect: 'none' }}
-                        />
-                        {gameState.bar.white > 1 && (
-                            <div className="text-white text-xs font-bold">×{gameState.bar.white}</div>
-                        )}
-                    </div>
-                )}
-            </div>
-        );
-    };
-
+    // Render the home area for a player
     const renderHome = (player: Player) => {
         const canBearOffNow = canBearOff(gameState.currentPlayer, gameState.board) &&
             gameState.currentPlayer === player &&
@@ -717,6 +699,40 @@ const BackgammonBoard: React.FC = () => {
         );
     };
 
+    // Render a thin bar with checkers in top (black) and bottom (white)
+    const renderBar = () => {
+        return (
+            <div className="w-4 h-40 bg-black flex flex-col justify-between items-center mx-1 relative">
+                {/* Black checkers (top) */}
+                <div className="flex flex-col items-center absolute top-0 left-0 right-0" style={{ height: '50%' }}>
+                    {Array.from({ length: gameState.bar.black }, (_, i) => (
+                        <div
+                            key={`bar-black-inboard-${i}`}
+                            draggable={gameState.currentPlayer === 'black' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing'}
+                            onDragStart={e => gameState.currentPlayer === 'black' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing' ? handleBarDragStart(e, 'black') : e.preventDefault()}
+                            onDragEnd={handleDragEnd}
+                            className={`w-4 h-4 rounded-full border-2 bg-gray-800 border-white select-none transition-transform ${gameState.currentPlayer === 'black' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing' ? 'cursor-move hover:scale-110' : ''}`}
+                            style={{ userSelect: 'none', margin: '1px 0' }}
+                        />
+                    ))}
+                </div>
+                {/* White checkers (bottom) */}
+                <div className="flex flex-col items-center absolute bottom-0 left-0 right-0" style={{ height: '50%' }}>
+                    {Array.from({ length: gameState.bar.white }, (_, i) => (
+                        <div
+                            key={`bar-white-inboard-${i}`}
+                            draggable={gameState.currentPlayer === 'white' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing'}
+                            onDragStart={e => gameState.currentPlayer === 'white' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing' ? handleBarDragStart(e, 'white') : e.preventDefault()}
+                            onDragEnd={handleDragEnd}
+                            className={`w-4 h-4 rounded-full border-2 bg-white border-gray-800 select-none transition-transform ${gameState.currentPlayer === 'white' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing' ? 'cursor-move hover:scale-110' : ''}`}
+                            style={{ userSelect: 'none', margin: '1px 0' }}
+                        />
+                    ))}
+                </div>
+            </div>
+        );
+    };
+
     if (gameState.gamePhase === 'finished') {
         const winner = gameState.home.white === 15 ? 'WHITE' : 'BLACK';
         return (
@@ -743,28 +759,8 @@ const BackgammonBoard: React.FC = () => {
                     Current Player: <span className="text-2xl">{gameState.currentPlayer.toUpperCase()}</span>
                 </div>
 
-                {/* Invalid move feedback */}
-                {invalidDropFeedback && (
-                    <div className="text-red-600 font-bold mb-2 bg-red-100 p-2 rounded">
-                        {invalidDropFeedback}
-                    </div>
-                )}
-
-                {selectedPoint !== null && (
-                    <div className="text-sm text-blue-600 font-semibold">
-                        {selectedPoint === -1 ? 'Bar selected' : `Point ${selectedPoint + 1} selected`}
-                    </div>
-                )}
-
-                {draggedPiece && (
-                    <div className="text-sm text-purple-600 font-semibold">
-                        Dragging {draggedPiece.player} piece from {draggedPiece.fromPoint === -1 ? 'bar' : `point ${draggedPiece.fromPoint + 1}`}
-                    </div>
-                )}
-
                 {gameState.dice && (
                     <div className="flex items-center justify-center gap-4 mt-4">
-                        <div className="text-lg font-semibold">Dice:</div>
                         <div className="flex gap-2">
                             {gameState.dice.map((die, index) => (
                                 <div
@@ -794,10 +790,44 @@ const BackgammonBoard: React.FC = () => {
                 </button>
             )}
 
+            {/* Black Bar (top, above board) */}
+            <div className="flex w-full justify-center mb-2">
+                <div className="w-[384px] flex justify-end">
+                    {/* left padding for alignment */}
+                </div>
+                {gameState.bar.black > 0 && (
+                    <div className="flex gap-1">
+                        {Array.from({ length: gameState.bar.black }, (_, i) => (
+                            <div
+                                key={`bar-black-${i}`}
+                                draggable={gameState.currentPlayer === 'black' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing'}
+                                onDragStart={e => gameState.currentPlayer === 'black' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing' ? handleBarDragStart(e, 'black') : e.preventDefault()}
+                                onDragEnd={handleDragEnd}
+                                className={`w-8 h-8 rounded-full border-2 bg-gray-800 border-white select-none transition-transform ${gameState.currentPlayer === 'black' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing' ? 'cursor-move hover:scale-110' : ''}`}
+                                style={{ userSelect: 'none', margin: '2px 0' }}
+                            />
+                        ))}
+                    </div>
+                )}
+                <div className="w-[128px]" /> {/* right padding for alignment */}
+            </div>
+
             {/* Board */}
             <div className="border-4 border-amber-900 bg-amber-200 p-4 shadow-2xl">
+                {/* Top Labels (Points 13-24) */}
+                <div className="flex gap-1 mb-1 items-end">
+                    {Array.from({ length: 6 }, (_, i) => (
+                        <div key={`label-top-${12 + i}`} className="w-12 text-center text-black font-bold text-xs">{13 + i}</div>
+                    ))}
+                    <div className="w-4 mx-1" /> {/* Bar placeholder */}
+                    {Array.from({ length: 6 }, (_, i) => (
+                        <div key={`label-top-${18 + i}`} className="w-12 text-center text-black font-bold text-xs">{19 + i}</div>
+                    ))}
+                    <div className="w-16" /> {/* Home placeholder */}
+                </div>
+
                 {/* Top Row (Points 13-24) */}
-                <div className="flex gap-1 mb-2">
+                <div className="flex gap-1 mb-2 items-end">
                     {Array.from({ length: 6 }, (_, i) => renderPoint(12 + i, true))}
                     {renderBar()}
                     {Array.from({ length: 6 }, (_, i) => renderPoint(18 + i, true))}
@@ -805,25 +835,46 @@ const BackgammonBoard: React.FC = () => {
                 </div>
 
                 {/* Bottom Row (Points 12-1) */}
-                <div className="flex gap-1">
+                <div className="flex gap-1 items-start">
                     {Array.from({ length: 6 }, (_, i) => renderPoint(11 - i, false))}
                     {renderBar()}
                     {Array.from({ length: 6 }, (_, i) => renderPoint(5 - i, false))}
                     {renderHome('black')}
                 </div>
+
+                {/* Bottom Labels (Points 12-1) */}
+                <div className="flex gap-1 mt-1 items-start">
+                    {Array.from({ length: 6 }, (_, i) => (
+                        <div key={`label-bot-${11 - i}`} className="w-12 text-center text-black font-bold text-xs">{12 - i}</div>
+                    ))}
+                    <div className="w-4 mx-1" /> {/* Bar placeholder */}
+                    {Array.from({ length: 6 }, (_, i) => (
+                        <div key={`label-bot-${5 - i}`} className="w-12 text-center text-black font-bold text-xs">{6 - i}</div>
+                    ))}
+                    <div className="w-16" /> {/* Home placeholder */}
+                </div>
             </div>
 
-            {/* Instructions */}
-            <div className="mt-6 p-4 bg-white rounded-lg shadow-lg max-w-2xl">
-                <h3 className="text-lg font-bold mb-2" onContextMenu={onDebug}>How to Play:</h3>
-                <ul className="text-sm space-y-1">
-                    <li>• Click "Roll Dice" to start your turn</li>
-                    <li>• Click on a piece to select it, then click destination</li>
-                    <li>• Or drag and drop pieces to move them</li>
-                    <li>• Must move pieces from the bar first if any are there</li>
-                    <li>• Get all pieces to your home area to bear off</li>
-                    <li>• First player to bear off all 15 pieces wins!</li>
-                </ul>
+            {/* White Bar (bottom, below board) */}
+            <div className="flex w-full justify-center mt-2">
+                <div className="w-[384px] flex justify-end">
+                    {/* left padding for alignment */}
+                </div>
+                {gameState.bar.white > 0 && (
+                    <div className="flex gap-1">
+                        {Array.from({ length: gameState.bar.white }, (_, i) => (
+                            <div
+                                key={`bar-white-${i}`}
+                                draggable={gameState.currentPlayer === 'white' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing'}
+                                onDragStart={e => gameState.currentPlayer === 'white' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing' ? handleBarDragStart(e, 'white') : e.preventDefault()}
+                                onDragEnd={handleDragEnd}
+                                className={`w-8 h-8 rounded-full border-2 bg-white border-gray-800 select-none transition-transform ${gameState.currentPlayer === 'white' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing' ? 'cursor-move hover:scale-110' : ''}`}
+                                style={{ userSelect: 'none', margin: '2px 0' }}
+                            />
+                        ))}
+                    </div>
+                )}
+                <div className="w-[128px]" /> {/* right padding for alignment */}
             </div>
         </div>
     );
