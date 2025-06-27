@@ -774,19 +774,13 @@ if (winner) {
             <div className="w-full flex flex-col items-center mb-8">
                 <div className="text-4xl font-bold text-green-700 mb-2">{winner} WINS!</div>
                 <button
-                    onClick={() => window.location.reload()}
+                    onClick={() => setGameState(initialGameState)}
                     className="px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xl font-bold shadow-lg"
                 >
-                    Refresh Page
+                    New Game
                 </button>
             </div>
             <div className="text-6xl font-bold text-amber-900 mb-8">🎉</div>
-            <button
-                onClick={() => setGameState(initialGameState)}
-                className="px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xl"
-            >
-                New Game
-            </button>
         </div>
     );
     }
