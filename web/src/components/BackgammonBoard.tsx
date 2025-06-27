@@ -28,10 +28,10 @@ type GameState = {
 // Initial checker locations
 const initialGameState: GameState = {
     board: [
-        -2, 0, 0, 0, 0, 5,    // 1-6: 2 black on 1, 5 white on 6
+        -2, 0, 0, 0, 0, 5,     // 1-6: 2 black on 1, 5 white on 6
         0, 3, 0, 0, 0, -5,     // 7-12: 3 white on 8, 5 black on 12
-        5, 0, 0, 0, 0, 0,      // 13-18: 5 white on 13
-        -3, 0, -5, 0, 0, 2     // 19-24: 3 black on 17, 5 black on 19, 2 white on 24
+        5, 0, 0, 0, -3, 0,      // 13-18: 5 white on 13
+        -5, 0, 0, 0, 0, 2     // 19-24: 3 black on 17, 5 black on 19, 2 white on 24
     ],
     bar: { white: 0, black: 0 },
     home: { white: 0, black: 0 },
