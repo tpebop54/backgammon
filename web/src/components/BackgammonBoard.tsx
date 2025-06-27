@@ -749,6 +749,28 @@ const BackgammonBoard: React.FC = () => {
                 </button>
             )}
 
+            {/* Black Bar (top, above board) */}
+            <div className="flex w-full justify-center mb-2">
+                <div className="w-[384px] flex justify-end">
+                    {/* left padding for alignment */}
+                </div>
+                {gameState.bar.black > 0 && (
+                    <div className="flex gap-1">
+                        {Array.from({ length: gameState.bar.black }, (_, i) => (
+                            <div
+                                key={`bar-black-${i}`}
+                                draggable={gameState.currentPlayer === 'black' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing'}
+                                onDragStart={e => gameState.currentPlayer === 'black' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing' ? handleBarDragStart(e, 'black') : e.preventDefault()}
+                                onDragEnd={handleDragEnd}
+                                className={`w-8 h-8 rounded-full border-2 bg-gray-800 border-white select-none transition-transform ${gameState.currentPlayer === 'black' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing' ? 'cursor-move hover:scale-110' : ''}`}
+                                style={{ userSelect: 'none', margin: '2px 0' }}
+                            />
+                        ))}
+                    </div>
+                )}
+                <div className="w-[128px]" /> {/* right padding for alignment */}
+            </div>
+
             {/* Board */}
             <div className="border-4 border-amber-900 bg-amber-200 p-4 shadow-2xl">
                 {/* Top Labels (Points 13-24) */}
@@ -790,6 +812,28 @@ const BackgammonBoard: React.FC = () => {
                     ))}
                     <div className="w-16" /> {/* Home placeholder */}
                 </div>
+            </div>
+
+            {/* White Bar (bottom, below board) */}
+            <div className="flex w-full justify-center mt-2">
+                <div className="w-[384px] flex justify-end">
+                    {/* left padding for alignment */}
+                </div>
+                {gameState.bar.white > 0 && (
+                    <div className="flex gap-1">
+                        {Array.from({ length: gameState.bar.white }, (_, i) => (
+                            <div
+                                key={`bar-white-${i}`}
+                                draggable={gameState.currentPlayer === 'white' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing'}
+                                onDragStart={e => gameState.currentPlayer === 'white' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing' ? handleBarDragStart(e, 'white') : e.preventDefault()}
+                                onDragEnd={handleDragEnd}
+                                className={`w-8 h-8 rounded-full border-2 bg-white border-gray-800 select-none transition-transform ${gameState.currentPlayer === 'white' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing' ? 'cursor-move hover:scale-110' : ''}`}
+                                style={{ userSelect: 'none', margin: '2px 0' }}
+                            />
+                        ))}
+                    </div>
+                )}
+                <div className="w-[128px]" /> {/* right padding for alignment */}
             </div>
         </div>
     );
