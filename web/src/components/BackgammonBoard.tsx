@@ -500,19 +500,22 @@ const BackgammonBoard: React.FC = () => {
 
     // In handlePointClick, use effectiveState
     const handlePointClick = (pointIndex: number) => {
+        // Prevent any moves if all dice are used
+        if (!effectiveState.dice || effectiveState.usedDice.every(u => u)) return;
+
         if (effectiveState.gamePhase !== 'playing' || !effectiveState.dice) return;
 
         const pieces = effectiveState.board[pointIndex];
         const isCurrentPlayerPiece = (effectiveState.currentPlayer === 'white' && pieces > 0) ||
             (effectiveState.currentPlayer === 'black' && pieces < 0);
 
-        // If clicking on current player's piece, auto-move using the largest available die
-        if (isCurrentPlayerPiece) {
-            // Find all possible moves for this checker
+        // If clicking on current player's piece, select it
+        if (isCurrentPlayerPiece && selectedPoint !== pointIndex) {
+            // Check if there is only one possible move for this checker
             const movesForThisChecker = effectiveState.possibleMoves.filter(move => move.from === pointIndex);
-            if (movesForThisChecker.length > 0) {
-                // Pick the move with the largest die
-                const move = movesForThisChecker.reduce((max, curr) => curr.dice > max.dice ? curr : max, movesForThisChecker[0]);
+            if (movesForThisChecker.length === 1) {
+                // Only one move, make it automatically
+                const move = movesForThisChecker[0];
                 makeMove(move.from, move.to, move.dice);
                 return;
             }
