@@ -280,6 +280,9 @@ const BackgammonBoard: React.FC = () => {
         const player = state.currentPlayer;
         const direction = player === 'white' ? 1 : -1;
         const opponent = player === 'white' ? 'black' : 'white';
+        // Always use the same newBar and newHome objects
+        const newBar = { ...state.bar };
+        const newHome = { ...state.home };
 
         // Move checker on the board
         if (from !== -1) {
@@ -291,95 +294,20 @@ const BackgammonBoard: React.FC = () => {
             if ((player === 'white' && dest === -1) || (player === 'black' && dest === 1)) {
                 // Move opponent checker to bar
                 newBoard[to] = 0;
-                // Increment bar for opponent
-                const newBar = { ...state.bar };
                 newBar[opponent] += 1;
-                // Place our checker
-                newBoard[to] += player === 'white' ? 1 : -1;
-                // Update bar and home
-                const newHome = { ...state.home };
-                if (from === -1) {
-                    newBar[player] -= 1;
-                } else if (to === -2) {
-                    newHome[player] += 1;
-                }
-                // Update used dice
-                let diceIndex = -1;
-                if (state.dice) {
-                    for (let i = 0; i < state.dice.length; i++) {
-                        if (state.dice[i] === dice && !state.usedDice[i]) {
-                            diceIndex = i;
-                            break;
-                        }
-                    }
-                }
-                const newUsedDice = [...state.usedDice];
-                if (diceIndex !== -1) {
-                    newUsedDice[diceIndex] = true;
-                }
-                // Check for win immediately after bearing off
-                const totalWhite = newHome.white;
-                const totalBlack = newHome.black;
-                const whiteOnBoard = newBoard.reduce((sum, n) => sum + (n > 0 ? n : 0), 0) + newBar.white;
-                const blackOnBoard = newBoard.reduce((sum, n) => sum + (n < 0 ? -n : 0), 0) + newBar.black;
-                if (totalWhite === initialWhiteCheckers && whiteOnBoard === 0) {
-                    setWinner('WHITE');
-                    setGameState({
-                        ...state,
-                        board: newBoard,
-                        bar: newBar,
-                        home: newHome,
-                        usedDice: newUsedDice,
-                        gamePhase: 'finished',
-                    });
-                    setPendingGameState(null);
-                    setTurnStartState(null);
-                    return;
-                }
-                if (totalBlack === initialBlackCheckers && blackOnBoard === 0) {
-                    setWinner('BLACK');
-                    setGameState({
-                        ...state,
-                        board: newBoard,
-                        bar: newBar,
-                        home: newHome,
-                        usedDice: newUsedDice,
-                        gamePhase: 'finished',
-                    });
-                    setPendingGameState(null);
-                    setTurnStartState(null);
-                    return;
-                }
-                const newState: GameState = {
-                    ...state,
-                    board: newBoard,
-                    bar: newBar,
-                    home: newHome,
-                    usedDice: newUsedDice,
-                    possibleMoves: calculatePossibleMoves({
-                        ...state,
-                        board: newBoard,
-                        bar: newBar,
-                        home: newHome,
-                        usedDice: newUsedDice,
-                    })
-                };
-                setPendingGameState(newState);
-                return;
             }
         }
-        // ...existing code for normal move...
+        // Place our checker (after possible hit)
         if (to !== -2) {
             newBoard[to] += player === 'white' ? 1 : -1;
         }
-        // ...existing code for bar/home/dice/win...
-        const newBar = { ...state.bar };
-        const newHome = { ...state.home };
+        // Update bar and home for our own checker
         if (from === -1) {
             newBar[player] -= 1;
         } else if (to === -2) {
             newHome[player] += 1;
         }
+        // Update used dice
         let diceIndex = -1;
         if (state.dice) {
             for (let i = 0; i < state.dice.length; i++) {
@@ -393,6 +321,7 @@ const BackgammonBoard: React.FC = () => {
         if (diceIndex !== -1) {
             newUsedDice[diceIndex] = true;
         }
+        // Check for win immediately after bearing off
         const totalWhite = newHome.white;
         const totalBlack = newHome.black;
         const whiteOnBoard = newBoard.reduce((sum, n) => sum + (n > 0 ? n : 0), 0) + newBar.white;
