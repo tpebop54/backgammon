@@ -42,8 +42,16 @@ io.on('connection', (socket) => {
     if (!games[roomId]) {
       games[roomId] = getInitialGameState();
     }
-    // Assign player color
+    // Assign player color robustly
     if (!playerAssignments[roomId]) playerAssignments[roomId] = {};
+    // Remove assignment if socket is not connected
+    const room = io.sockets.adapter.rooms.get(roomId) || new Set();
+    if (playerAssignments[roomId].white && !room.has(playerAssignments[roomId].white)) {
+      playerAssignments[roomId].white = undefined;
+    }
+    if (playerAssignments[roomId].black && !room.has(playerAssignments[roomId].black)) {
+      playerAssignments[roomId].black = undefined;
+    }
     let assignedColor;
     if (!playerAssignments[roomId].white) {
       playerAssignments[roomId].white = socket.id;
@@ -177,6 +185,18 @@ io.on('connection', (socket) => {
       gamePhase: 'playing',
     };
     io.to(roomId).emit('gameState', games[roomId]);
+  });
+
+  // Clean up player assignment on disconnect
+  socket.on('disconnect', () => {
+    for (const roomId in playerAssignments) {
+      if (playerAssignments[roomId].white === socket.id) {
+        playerAssignments[roomId].white = undefined;
+      }
+      if (playerAssignments[roomId].black === socket.id) {
+        playerAssignments[roomId].black = undefined;
+      }
+    }
   });
 });
 
