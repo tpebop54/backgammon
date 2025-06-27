@@ -524,8 +524,16 @@ const BackgammonBoard: React.FC = () => {
         const isCurrentPlayerPiece = (gameState.currentPlayer === 'white' && pieces > 0) ||
             (gameState.currentPlayer === 'black' && pieces < 0);
 
-        // If clicking on current player's piece, select it
+        // If clicking on current player's piece
         if (isCurrentPlayerPiece && selectedPoint !== pointIndex) {
+            // Find all possible moves for this checker
+            const movesForThisChecker = gameState.possibleMoves.filter(move => move.from === pointIndex);
+            if (movesForThisChecker.length === 1) {
+                // Only one move: make it immediately
+                const move = movesForThisChecker[0];
+                makeMove(move.from, move.to, move.dice);
+                return;
+            }
             setSelectedPoint(pointIndex);
             return;
         }
@@ -774,13 +782,19 @@ if (winner) {
             <div className="w-full flex flex-col items-center mb-8">
                 <div className="text-4xl font-bold text-green-700 mb-2">{winner} WINS!</div>
                 <button
-                    onClick={() => setGameState(initialGameState)}
+                    onClick={() => window.location.reload()}
                     className="px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xl font-bold shadow-lg"
                 >
-                    New Game
+                    Refresh Page
                 </button>
             </div>
             <div className="text-6xl font-bold text-amber-900 mb-8">🎉</div>
+            <button
+                onClick={() => setGameState(initialGameState)}
+                className="px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xl"
+            >
+                New Game
+            </button>
         </div>
     );
     }
