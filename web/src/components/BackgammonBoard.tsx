@@ -848,9 +848,7 @@ const BackgammonBoard: React.FC = () => {
 
                 {/* Game Info */}
                 <div className="mb-4 text-center">
-                    <div className="text-xl font-bold text-amber-800 mb-2">
-                        Current Player: <span className="text-2xl">{gameState.currentPlayer.toUpperCase()}</span>
-                    </div>
+                    {/* Current Player header removed */}
                     {/* Dice removed from here */}
                     {effectiveState.dice && effectiveState.possibleMoves.length === 0 && effectiveState.usedDice.some(u => !u) && (
                         <div className="text-red-600 font-bold mt-2">No moves available!</div>
