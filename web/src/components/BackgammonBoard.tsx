@@ -549,6 +549,7 @@ const BackgammonBoard: React.FC = () => {
         if (absCount === 0) {
             return (
                 <div
+                    key={`point-${pointIndex}`}
                     className={`w-12 h-40 ${pointIndex % 2 === 0 ? 'bg-amber-600' : 'bg-amber-800'
                         } ${isTopRow ? 'flex flex-col' : 'flex flex-col-reverse'
                         } items-center justify-start p-1 cursor-pointer hover:bg-yellow-400 transition-colors ${highlight}`}
@@ -595,7 +596,7 @@ const BackgammonBoard: React.FC = () => {
         if (absCount > maxVisible) {
             pieceElements.push(
                 <div
-                    key="overflow"
+                    key={`overflow-${pointIndex}`}
                     draggable={canDrag}
                     onDragStart={(e) => handleDragStart(e, pointIndex, actualVisible)}
                     onDragEnd={handleDragEnd}
@@ -616,6 +617,7 @@ const BackgammonBoard: React.FC = () => {
 
         return (
             <div
+                key={`point-${pointIndex}`}
                 className={`w-12 h-40 ${pointIndex % 2 === 0 ? 'bg-amber-600' : 'bg-amber-800'
                     } ${isTopRow ? 'flex flex-col' : 'flex flex-col-reverse'
                     } items-center justify-start p-1 cursor-pointer hover:bg-yellow-400 transition-colors ${highlight}`}
@@ -743,28 +745,8 @@ const BackgammonBoard: React.FC = () => {
                     Current Player: <span className="text-2xl">{gameState.currentPlayer.toUpperCase()}</span>
                 </div>
 
-                {/* Invalid move feedback */}
-                {invalidDropFeedback && (
-                    <div className="text-red-600 font-bold mb-2 bg-red-100 p-2 rounded">
-                        {invalidDropFeedback}
-                    </div>
-                )}
-
-                {selectedPoint !== null && (
-                    <div className="text-sm text-blue-600 font-semibold">
-                        {selectedPoint === -1 ? 'Bar selected' : `Point ${selectedPoint + 1} selected`}
-                    </div>
-                )}
-
-                {draggedPiece && (
-                    <div className="text-sm text-purple-600 font-semibold">
-                        Dragging {draggedPiece.player} piece from {draggedPiece.fromPoint === -1 ? 'bar' : `point ${draggedPiece.fromPoint + 1}`}
-                    </div>
-                )}
-
                 {gameState.dice && (
                     <div className="flex items-center justify-center gap-4 mt-4">
-                        <div className="text-lg font-semibold">Dice:</div>
                         <div className="flex gap-2">
                             {gameState.dice.map((die, index) => (
                                 <div
