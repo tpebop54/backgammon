@@ -25,14 +25,25 @@ type GameState = {
     possibleMoves: Array<{ from: number; to: number; dice: number }>;
 };
 
+// Used for dev to test different scenarios.
+const devBoard = [
+    1, 1, 0, 0, 0, 1,  // 1-6
+    0, 0, 0, 0, 0, 0,     // 7-12
+    0, 0, 0, 0, 0, 0,     // 13-18
+    -1, 0, -1, 0, 0, -1,     // 19-24
+];
+
+//Setup for an actual backgammon game.
+const defaultBoard = [
+    -2, 0, 0, 0, 0, 5,    // 1-6: 2 black on 1, 5 white on 6
+    0, 3, 0, 0, 0, -5,    // 7-12: 3 white on 8, 5 black on 12
+    5, 0, 0, 0, -3, 0,    // 13-18: 5 white on 13
+    -5, 0, 0, 0, 0, 2,    // 19-24: 3 black on 17, 5 black on 19, 2 white on 24
+];
+
 // Initial checker locations
 const initialGameState: GameState = {
-    board: [
-        -2, 0, 0, 0, 0, 5,     // 1-6: 2 black on 1, 5 white on 6
-        0, 3, 0, 0, 0, -5,     // 7-12: 3 white on 8, 5 black on 12
-        5, 0, 0, 0, -3, 0,      // 13-18: 5 white on 13
-        -5, 0, 0, 0, 0, 2     // 19-24: 3 black on 17, 5 black on 19, 2 white on 24
-    ],
+    board: devBoard,
     bar: { white: 0, black: 0 },
     home: { white: 0, black: 0 },
     currentPlayer: 'white',
@@ -52,7 +63,9 @@ const BackgammonBoard: React.FC = () => {
     const [draggingCheckerIndex, setDraggingCheckerIndex] = useState<number | null>(null);
 
     // Helper function to check if a player can bear off
+    // TODO: this gets called way too much.
     const canBearOff = (player: Player, board: number[]): boolean => {
+        console.log('canBearOff');
         const homeBoard = player === 'white' ? [0, 1, 2, 3, 4, 5] : [18, 19, 20, 21, 22, 23];
 
         // Check if all pieces are in home board or already borne off
@@ -114,7 +127,34 @@ const BackgammonBoard: React.FC = () => {
                     // Check for bearing off
                     if (canBearOffNow && ((state.currentPlayer === 'white' && to < 0) ||
                         (state.currentPlayer === 'black' && to >= 24))) {
-                        moves.push({ from, to: -2, dice }); // -2 represents home
+                        // Only allow bearing off if no checker is on a higher point
+                        // or if the die matches the exact distance
+                        let higherPointExists = false;
+                        if (state.currentPlayer === 'white') {
+                            // Check for checkers on higher points (indices > from)
+                            for (let i = from + 1; i < 6; i++) {
+                                if (state.board[i] > 0) {
+                                    higherPointExists = true;
+                                    break;
+                                }
+                            }
+                            const exact = (from + 1) === dice;
+                            if (exact || (!higherPointExists && (from + 1) < dice)) {
+                                moves.push({ from, to: -2, dice });
+                            }
+                        } else {
+                          // Check for checkers on higher points (indices < from)
+                          for (let i = from - 1; i >= 18; i--) {
+                            if (state.board[i] < 0) {
+                              higherPointExists = true;
+                              break;
+                            }
+                          }
+                          const exact = (24 - from) === dice;
+                          if (exact || (!higherPointExists && (24 - from) < dice)) {
+                            moves.push({ from, to: -2, dice });
+                          }
+                        }
                         return;
                     }
 
@@ -576,25 +616,19 @@ const BackgammonBoard: React.FC = () => {
 
         // Create piece elements with proper spacing and alignment
         const pieceElements = [];
-        const maxVisible = 5;
+        const maxVisible = 7; // Show up to 6 checkers + overflow indicator
         const actualVisible = Math.min(absCount, maxVisible);
         const availableHeight = 160; // px
         const checkerSize = 32; // px
         let overlap = 0;
         if (actualVisible > 1) {
-            const neededHeight = checkerSize * actualVisible;
-            if (neededHeight > availableHeight) {
-                overlap = (neededHeight - availableHeight) / (actualVisible - 1);
-            } else {
-                overlap = 0;
-            }
+            overlap = (checkerSize * actualVisible - availableHeight) / (actualVisible - 1);
+            if (overlap < 0) overlap = 0;
         }
-        for (let i = 0; i < actualVisible; i++) {
+        for (let i = 0; i < Math.min(absCount, maxVisible - 1); i++) {
             const isBeingDragged = canDrag && draggingPointIndex === pointIndex && draggingCheckerIndex === i;
             // For top row, stack from top edge; for bottom row, stack from bottom edge
-            const pos = isTopRow
-                ? i * (checkerSize - overlap)
-                : i * (checkerSize - overlap);
+            const pos = i * (checkerSize - overlap);
             pieceElements.push(
                 <div
                     key={i}
@@ -615,17 +649,15 @@ const BackgammonBoard: React.FC = () => {
                 />
             );
         }
-        // Add overflow indicator if more than 5 pieces
-        if (absCount > maxVisible) {
-            const i = actualVisible;
-            const pos = isTopRow
-                ? i * (checkerSize - overlap)
-                : i * (checkerSize - overlap);
+        // Add overflow indicator if more than 6 pieces
+        if (absCount > maxVisible - 1) {
+            const i = maxVisible - 1;
+            const pos = i * (checkerSize - overlap);
             pieceElements.push(
                 <div
                     key={`overflow-${pointIndex}`}
                     draggable={canDrag}
-                    onDragStart={(e) => handleDragStart(e, pointIndex, actualVisible)}
+                    onDragStart={(e) => handleDragStart(e, pointIndex, i)}
                     onDragEnd={handleDragEnd}
                     className={`absolute left-1/2 -translate-x-1/2 w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold ${player === 'white'
                         ? 'bg-white border-gray-800 text-gray-800'
@@ -639,7 +671,7 @@ const BackgammonBoard: React.FC = () => {
                         bottom: !isTopRow ? pos : undefined
                     }}
                 >
-                    +{absCount - maxVisible}
+                    +{absCount - (maxVisible - 1)}
                 </div>
             );
         }
@@ -656,7 +688,7 @@ const BackgammonBoard: React.FC = () => {
                 onDrop={(e) => handleDrop(e, pointIndex)}
                 style={{ overflow: 'hidden' }}
             >
-                <div style={{ position: 'relative', width: checkerSize, height: availableHeight }}>
+                <div style={{ position: 'relative', width: checkerSize, height: availableHeight, marginBottom: isTopRow ? 4 : 0, marginTop: !isTopRow ? 4 : 0 }}>
                     {pieceElements}
                 </div>
                 {/* No label here */}
@@ -666,26 +698,19 @@ const BackgammonBoard: React.FC = () => {
 
     // Render the home area for a player
     const renderHome = (player: Player) => {
-        const canBearOffNow = canBearOff(gameState.currentPlayer, gameState.board) &&
-            gameState.currentPlayer === player &&
-            (selectedPoint !== null && selectedPoint >= 0 || draggedPiece);
-        const hasValidBearOffMoves = gameState.possibleMoves.some(move => move.to === -2);
-        const showDropZone = canBearOffNow && hasValidBearOffMoves;
-        const isBeingDraggedOver = dragOverPoint === -2;
+        // Only highlight if dragging a checker of the correct player and a valid bear-off move exists
+        const isDraggingOwnChecker = draggedPiece && draggedPiece.player === player;
+        const canBearOffNow = canBearOff(gameState.currentPlayer, gameState.board) && gameState.currentPlayer === player;
+        const hasValidBearOffMoves = gameState.possibleMoves.some(move => move.to === -2 && (!draggedPiece || move.from === draggedPiece.fromPoint));
+        const showDropZone = isDraggingOwnChecker && canBearOffNow && hasValidBearOffMoves;
+        const isBeingDraggedOver = dragOverPoint === -2 && showDropZone;
 
         return (
             <div
-                className={`w-16 h-40 bg-green-600 flex flex-col items-center justify-center gap-2 transition-colors ${showDropZone ? 'hover:bg-green-500 cursor-pointer ring-2 ring-green-400 bg-green-100' : ''
-                    } ${isBeingDraggedOver ? 'ring-4 ring-purple-400 bg-purple-100' : ''}`}
-                onClick={canBearOffNow ? handleBearOff : undefined}
-                onDragOver={showDropZone ? (e) => {
-                    handleDragOver(e, -2);
-                    setDragOverPoint(-2);
-                } : undefined}
-                onDragLeave={showDropZone ? (e) => {
-                    handleDragLeave(e);
-                    setDragOverPoint(null);
-                } : undefined}
+                className={`w-16 h-40 bg-green-600 flex flex-col items-center justify-center gap-2 transition-colors ${showDropZone ? 'hover:bg-green-500 cursor-pointer ring-2 ring-green-400 bg-green-100' : ''} ${isBeingDraggedOver ? 'ring-4 ring-purple-400 bg-purple-100' : ''}`}
+                onClick={showDropZone ? handleBearOff : undefined}
+                onDragOver={showDropZone ? (e) => { handleDragOver(e, -2); setDragOverPoint(-2); } : undefined}
+                onDragLeave={showDropZone ? (e) => { handleDragLeave(e); setDragOverPoint(null); } : undefined}
                 onDrop={showDropZone ? (e) => handleHomeDrop(e, player) : undefined}
             >
                 <div className="text-white text-xs font-bold">HOME</div>
@@ -733,20 +758,31 @@ const BackgammonBoard: React.FC = () => {
         );
     };
 
-    if (gameState.gamePhase === 'finished') {
-        const winner = gameState.home.white === 15 ? 'WHITE' : 'BLACK';
-        return (
-            <div className="flex flex-col items-center justify-center min-h-screen bg-amber-100">
-                <div className="text-6xl font-bold text-amber-900 mb-8">🎉</div>
-                <h1 className="text-4xl font-bold mb-4 text-amber-900">{winner} WINS!</h1>
+    // Dynamically determine checker count for each player from initialGameState
+    const initialWhiteCheckers = initialGameState.board.reduce((sum, n) => sum + (n > 0 ? n : 0), 0) + initialGameState.bar.white + initialGameState.home.white;
+const initialBlackCheckers = initialGameState.board.reduce((sum, n) => sum + (n < 0 ? -n : 0), 0) + initialGameState.bar.black + initialGameState.home.black;
+const totalWhite = gameState.home.white;
+const totalBlack = gameState.home.black;
+const whiteOnBoard = gameState.board.reduce((sum, n) => sum + (n > 0 ? n : 0), 0) + gameState.bar.white;
+const blackOnBoard = gameState.board.reduce((sum, n) => sum + (n < 0 ? -n : 0), 0) + gameState.bar.black;
+let winner: string | null = null;
+if (totalWhite === initialWhiteCheckers && whiteOnBoard === 0) winner = 'WHITE';
+if (totalBlack === initialBlackCheckers && blackOnBoard === 0) winner = 'BLACK';
+if (winner) {
+    return (
+        <div className="flex flex-col items-center justify-center min-h-screen bg-amber-100">
+            <div className="w-full flex flex-col items-center mb-8">
+                <div className="text-4xl font-bold text-green-700 mb-2">{winner} WINS!</div>
                 <button
                     onClick={() => setGameState(initialGameState)}
-                    className="px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xl"
+                    className="px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xl font-bold shadow-lg"
                 >
                     New Game
                 </button>
             </div>
-        );
+            <div className="text-6xl font-bold text-amber-900 mb-8">🎉</div>
+        </div>
+    );
     }
 
     return (
@@ -831,7 +867,7 @@ const BackgammonBoard: React.FC = () => {
                     {Array.from({ length: 6 }, (_, i) => renderPoint(12 + i, true))}
                     {renderBar()}
                     {Array.from({ length: 6 }, (_, i) => renderPoint(18 + i, true))}
-                    {renderHome('white')}
+                    {renderHome('black')}
                 </div>
 
                 {/* Bottom Row (Points 12-1) */}
@@ -839,7 +875,7 @@ const BackgammonBoard: React.FC = () => {
                     {Array.from({ length: 6 }, (_, i) => renderPoint(11 - i, false))}
                     {renderBar()}
                     {Array.from({ length: 6 }, (_, i) => renderPoint(5 - i, false))}
-                    {renderHome('black')}
+                    {renderHome('white')}
                 </div>
 
                 {/* Bottom Labels (Points 12-1) */}
@@ -868,7 +904,7 @@ const BackgammonBoard: React.FC = () => {
                                 draggable={gameState.currentPlayer === 'white' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing'}
                                 onDragStart={e => gameState.currentPlayer === 'white' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing' ? handleBarDragStart(e, 'white') : e.preventDefault()}
                                 onDragEnd={handleDragEnd}
-                                className={`w-8 h-8 rounded-full border-2 bg-white border-gray-800 select-none transition-transform ${gameState.currentPlayer === 'white' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing' ? 'cursor-move hover:scale-110' : ''}`}
+                                className={`w-4 h-4 rounded-full border-2 bg-white border-gray-800 select-none transition-transform ${gameState.currentPlayer === 'white' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing' ? 'cursor-move hover:scale-110' : ''}`}
                                 style={{ userSelect: 'none', margin: '2px 0' }}
                             />
                         ))}
