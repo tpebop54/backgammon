@@ -80,6 +80,9 @@ const BackgammonBoard: React.FC = () => {
     // Use remoteGameState if available
     const effectiveState = remoteGameState || gameState;
 
+    // --- Multiplayer: Only allow controls for the current player ---
+    const isMyTurn = !!playerColor && effectiveState.currentPlayer === playerColor && effectiveState.gamePhase === 'playing';
+
     // --- Handler and helper function declarations ---
     // Memoize canBearOff to avoid unnecessary recalculations
     const canBearOff = useCallback((player: Player, board: number[]): boolean => {
@@ -485,14 +488,15 @@ const BackgammonBoard: React.FC = () => {
         return '';
     };
 
-    // In renderPoint, use effectiveState
+    // In renderPoint, use effectiveState and isMyTurn
     const renderPoint = (pointIndex: number, isTopRow: boolean) => {
         const pieces = effectiveState.board[pointIndex];
         const highlight = getPointHighlight(pointIndex);
         const isCurrentPlayerPiece = (effectiveState.currentPlayer === 'white' && pieces > 0) ||
             (effectiveState.currentPlayer === 'black' && pieces < 0);
         const hasValidMoves = effectiveState.possibleMoves.some(move => move.from === pointIndex);
-        const canDrag = isCurrentPlayerPiece && hasValidMoves && effectiveState.gamePhase === 'playing';
+        // Only allow drag if it's my turn
+        const canDrag = Boolean(isMyTurn && isCurrentPlayerPiece && hasValidMoves && effectiveState.gamePhase === 'playing');
         return (
             <Point
                 key={`point-${pointIndex}`}
@@ -790,7 +794,7 @@ const BackgammonBoard: React.FC = () => {
                             {Array.from({ length: 6 }, (_, i) => renderPoint(12 + i, true))}
                             <Bar
                                 bar={effectiveState.bar}
-                                currentPlayer={effectiveState.currentPlayer}
+                                currentPlayer={isMyTurn ? effectiveState.currentPlayer : (effectiveState.currentPlayer === 'white' ? 'black' : 'white')}
                                 possibleMoves={effectiveState.possibleMoves}
                                 gamePhase={effectiveState.gamePhase}
                                 handleBarDragStart={handleBarDragStart}
@@ -806,7 +810,7 @@ const BackgammonBoard: React.FC = () => {
                             {Array.from({ length: 6 }, (_, i) => renderPoint(11 - i, false))}
                             <Bar
                                 bar={effectiveState.bar}
-                                currentPlayer={effectiveState.currentPlayer}
+                                currentPlayer={isMyTurn ? effectiveState.currentPlayer : (effectiveState.currentPlayer === 'white' ? 'black' : 'white')}
                                 possibleMoves={effectiveState.possibleMoves}
                                 gamePhase={effectiveState.gamePhase}
                                 handleBarDragStart={handleBarDragStart}

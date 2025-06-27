@@ -154,9 +154,18 @@ io.on('connection', (socket) => {
   });
 
   // Instead of sending the full newState, send a move object and let the server update state and roll dice
-  socket.on('makeMove', ({ roomId, move }) => {
+  socket.on('makeMove', ({ roomId, move, playerColor }) => {
     const state = games[roomId];
     if (!state || !move) return;
+    // Only allow the current player to make a move
+    if (socket.id !== playerAssignments[roomId]?.[state.currentPlayer]) {
+      console.log(`[makeMove] Rejected move: Not ${state.currentPlayer}'s turn (socket: ${socket.id})`);
+      return;
+    }
+    // Debug logging for move attempts
+    console.log(`\n[makeMove] Room: ${roomId}`);
+    console.log('Received move:', move);
+    console.log('Current possibleMoves:', JSON.stringify(state.possibleMoves, null, 2));
     // move: { from, to, dice }
     const { from, to, dice } = move;
     const player = state.currentPlayer;
@@ -164,8 +173,12 @@ io.on('connection', (socket) => {
     const newBoard = [...state.board];
     const newBar = { ...state.bar };
     const newHome = { ...state.home };
-    // Move checker on the board
-    if (from !== -1) {
+    // Move checker on the board or from the bar
+    if (from === -1) {
+      // Moving from the bar
+      newBar[player] -= 1;
+    } else {
+      // Moving from a point on the board
       newBoard[from] -= player === 'white' ? 1 : -1;
     }
     // Handle hitting opponent's blot (single checker)
@@ -177,7 +190,11 @@ io.on('connection', (socket) => {
       }
     }
     // Place our checker (after possible hit)
-    if (to !== -2) {
+    if (to === -2) {
+      // Bearing off
+      newHome[player] += 1;
+    } else {
+      // Placing on a board point
       newBoard[to] += player === 'white' ? 1 : -1;
     }
     // Update bar and home for our own checker
