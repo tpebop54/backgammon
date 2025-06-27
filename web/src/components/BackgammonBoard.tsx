@@ -28,30 +28,10 @@ type GameState = {
 // Initial checker locations
 const initialGameState: GameState = {
     board: [
-        0,   // point 1 (black home board)
-        0,   // point 2
-        0,   // point 3
-        0,   // point 4
-        0,   // point 5
-        -5,  // point 6 (5 black pieces)
-        0,   // point 7
-        -3,  // point 8 (3 black pieces)
-        0,   // point 9
-        0,   // point 10
-        0,   // point 11
-        5,   // point 12 (5 white pieces)
-        -5,  // point 13 (5 black pieces)
-        0,   // point 14
-        0,   // point 15
-        0,   // point 16
-        3,   // point 17 (3 white pieces)
-        0,   // point 18
-        5,   // point 19 (5 white pieces)
-        0,   // point 20
-        0,   // point 21
-        0,   // point 22
-        0,   // point 23
-        2,   // point 24 (2 white pieces)
+        -2, 0, 0, 0, 0, 5,    // 1-6: 2 black on 1, 5 white on 6
+        0, 3, 0, 0, 0, -5,     // 7-12: 3 white on 8, 5 black on 12
+        5, 0, 0, 0, 0, 0,      // 13-18: 5 white on 13
+        -3, 0, -5, 0, 0, 2     // 19-24: 3 black on 17, 5 black on 19, 2 white on 24
     ],
     bar: { white: 0, black: 0 },
     home: { white: 0, black: 0 },
@@ -192,11 +172,13 @@ const BackgammonBoard: React.FC = () => {
             const diceIndex = prev.dice!.indexOf(dice);
             const newUsedDice = [...prev.usedDice];
 
+            // Track if we already removed the checker from the stack
+            let alreadyRemovedFrom = false;
+
             // Remove checker from correct position in stack
             if (checkerIndex !== undefined && from >= 0) {
                 const absCount = Math.abs(newBoard[from]);
                 if (absCount > 1) {
-                    // Remove one checker from the stack
                     if (newBoard[from] > 0) {
                         newBoard[from] -= 1;
                     } else {
@@ -205,6 +187,7 @@ const BackgammonBoard: React.FC = () => {
                 } else {
                     newBoard[from] = 0;
                 }
+                alreadyRemovedFrom = true;
             }
 
             // Handle move from bar
@@ -229,18 +212,29 @@ const BackgammonBoard: React.FC = () => {
             }
             // Handle bearing off
             else if (to === -2) {
+                if (!alreadyRemovedFrom) {
+                    if (prev.currentPlayer === 'white') {
+                        newBoard[from] -= 1;
+                    } else {
+                        newBoard[from] += 1;
+                    }
+                }
                 if (prev.currentPlayer === 'white') {
-                    newBoard[from] -= 1;
                     newHome.white += 1;
                 } else {
-                    newBoard[from] += 1;
                     newHome.black += 1;
                 }
             }
             // Normal move
             else {
+                if (!alreadyRemovedFrom) {
+                    if (prev.currentPlayer === 'white') {
+                        newBoard[from] -= 1;
+                    } else {
+                        newBoard[from] += 1;
+                    }
+                }
                 if (prev.currentPlayer === 'white') {
-                    newBoard[from] -= 1;
                     if (newBoard[to] === -1) {
                         newBoard[to] = 1;
                         newBar.black += 1;
@@ -248,7 +242,6 @@ const BackgammonBoard: React.FC = () => {
                         newBoard[to] += 1;
                     }
                 } else {
-                    newBoard[from] += 1;
                     if (newBoard[to] === 1) {
                         newBoard[to] = -1;
                         newBar.white += 1;
