@@ -861,11 +861,9 @@ const BackgammonBoard: React.FC = () => {
                 <Controls
                     onUndo={handleUndo}
                     onConfirm={handleConfirmMoves}
-                    onRollDice={rollDice}
                     onNewGame={handleNewGame}
                     canUndo={!!pendingGameState && JSON.stringify(effectiveState) !== JSON.stringify(turnStartState)}
                     canConfirm={!!(pendingGameState && JSON.stringify(effectiveState) !== JSON.stringify(turnStartState) && effectiveState.usedDice.every(u => u))}
-                    canRoll={!effectiveState.dice}
                     showNewGame={!!winner}
                 />
 
