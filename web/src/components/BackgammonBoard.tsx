@@ -517,6 +517,15 @@ const BackgammonBoard: React.FC = () => {
         if (selectedPoint === pointIndex) return 'ring-4 ring-blue-400';
         if (dragOverPoint === pointIndex) return 'ring-4 ring-purple-400 bg-purple-100';
 
+        // Only highlight valid drop targets when dragging from the bar
+        if (draggedPiece && draggedPiece.fromPoint === -1) {
+            const canMoveTo = gameState.possibleMoves.some(move =>
+                move.from === -1 && move.to === pointIndex
+            );
+            if (canMoveTo) return 'ring-2 ring-green-400 bg-green-100';
+            return '';
+        }
+
         if (selectedPoint !== null || draggedPiece) {
             const fromPoint = draggedPiece ? draggedPiece.fromPoint : selectedPoint;
             const canMoveTo = gameState.possibleMoves.some(move =>
@@ -786,19 +795,6 @@ const BackgammonBoard: React.FC = () => {
                     {Array.from({ length: 6 }, (_, i) => renderPoint(5 - i, false))}
                     {renderHome('black')}
                 </div>
-            </div>
-
-            {/* Instructions */}
-            <div className="mt-6 p-4 bg-white rounded-lg shadow-lg max-w-2xl">
-                <h3 className="text-lg font-bold mb-2" onContextMenu={onDebug}>How to Play:</h3>
-                <ul className="text-sm space-y-1">
-                    <li>• Click "Roll Dice" to start your turn</li>
-                    <li>• Click on a piece to select it, then click destination</li>
-                    <li>• Or drag and drop pieces to move them</li>
-                    <li>• Must move pieces from the bar first if any are there</li>
-                    <li>• Get all pieces to your home area to bear off</li>
-                    <li>• First player to bear off all 15 pieces wins!</li>
-                </ul>
             </div>
         </div>
     );
