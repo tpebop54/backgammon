@@ -97,7 +97,6 @@ const BackgammonBoard: React.FC = () => {
     const calculatePossibleMoves = useCallback((state: GameState): Array<{ from: number; to: number; dice: number }> => {
         const moves: Array<{ from: number; to: number; dice: number }> = [];
         if (!state.dice || state.gamePhase !== 'playing') return moves;
-        // Use all dice, not just unused, to generate all possible moves
         const diceList = state.dice;
         const direction = state.currentPlayer === 'white' ? -1 : 1;
         const canBearOffNow = canBearOff(state.currentPlayer, state.board);
@@ -129,31 +128,34 @@ const BackgammonBoard: React.FC = () => {
                 for (let d = 0; d < diceList.length; d++) {
                     const dice = diceList[d];
                     let to = from + (dice * direction);
-                    if (canBearOffNow && ((state.currentPlayer === 'white' && to < 0) ||
-                        (state.currentPlayer === 'black' && to >= 24))) {
-                        let higherPointExists = false;
+                    // Only allow bearing off from home board
+                    if (canBearOffNow && (
+                        (state.currentPlayer === 'white' && from >= 0 && from <= 5 && to < 0) ||
+                        (state.currentPlayer === 'black' && from >= 18 && from <= 23 && to >= 24)
+                    )) {
+                        let fartherCheckerExists = false;
                         if (state.currentPlayer === 'white') {
-                            for (let i = from + 1; i <= 5; i++) {
+                            // For white, check for checkers on lower points (indices 0 to from-1)
+                            for (let i = 0; i < from; i++) {
                                 if (state.board[i] > 0) {
-                                    higherPointExists = true;
+                                    fartherCheckerExists = true;
                                     break;
                                 }
                             }
                             const exact = (from + 1) === dice;
-                            // Only allow bearing off with higher die if no checkers on higher points
-                            if (exact || (!higherPointExists && dice > (from + 1))) {
+                            if (exact || (!fartherCheckerExists && dice > (from + 1))) {
                                 moves.push({ from, to: -2, dice });
                             }
                         } else {
-                            // For black, home is 18-23. Check for checkers on higher points (lower indices in 18-23)
-                            for (let i = from - 1; i >= 18; i--) {
+                            // For black, check for checkers on higher points (indices from+1 to 23)
+                            for (let i = from + 1; i <= 23; i++) {
                                 if (state.board[i] < 0) {
-                                    higherPointExists = true;
+                                    fartherCheckerExists = true;
                                     break;
                                 }
                             }
                             const exact = (24 - from) === dice;
-                            if (exact || (!higherPointExists && dice > (24 - from))) {
+                            if (exact || (!fartherCheckerExists && dice > (24 - from))) {
                                 moves.push({ from, to: -2, dice });
                             }
                         }
@@ -231,13 +233,6 @@ const BackgammonBoard: React.FC = () => {
     };
 
     // --- End handler and helper function declarations ---
-
-    // Automatically roll dice at the start of each player's turn
-    useEffect(() => {
-        if (gameState.gamePhase === 'setup' && !winner) {
-            rollDice();
-        }
-    }, [gameState.gamePhase, winner]);
 
     // Calculate possible moves on game state change
     useEffect(() => {
@@ -524,22 +519,20 @@ const BackgammonBoard: React.FC = () => {
     const handlePointClick = (pointIndex: number) => {
         // Prevent any moves if all dice are used
         if (!effectiveState.dice || effectiveState.usedDice.every(u => u)) return;
+
         if (effectiveState.gamePhase !== 'playing' || !effectiveState.dice) return;
+
         const pieces = effectiveState.board[pointIndex];
         const isCurrentPlayerPiece = (effectiveState.currentPlayer === 'white' && pieces > 0) ||
             (effectiveState.currentPlayer === 'black' && pieces < 0);
-        // If clicking on current player's piece, auto-move to home if possible, else largest die
-        if (isCurrentPlayerPiece) {
+
+        // If clicking on current player's piece, select it
+        if (isCurrentPlayerPiece && selectedPoint !== pointIndex) {
+            // Check if there is only one possible move for this checker
             const movesForThisChecker = effectiveState.possibleMoves.filter(move => move.from === pointIndex);
-            if (movesForThisChecker.length > 0) {
-                // Prefer bear-off move if available
-                const bearOffMove = movesForThisChecker.find(move => move.to === -2);
-                if (bearOffMove) {
-                    makeMove(bearOffMove.from, bearOffMove.to, bearOffMove.dice);
-                    return;
-                }
-                // Otherwise, pick the move with the largest die
-                const move = movesForThisChecker.reduce((max, curr) => curr.dice > max.dice ? curr : max, movesForThisChecker[0]);
+            if (movesForThisChecker.length === 1) {
+                // Only one move, make it automatically
+                const move = movesForThisChecker[0];
                 makeMove(move.from, move.to, move.dice);
                 return;
             }
@@ -875,40 +868,30 @@ const BackgammonBoard: React.FC = () => {
                     )}
                 </div>
 
+                {/* Dice Roll Button */}
+                {!effectiveState.dice && (
+                    <button
+                        onClick={rollDice}
+                        className="mb-6 px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xl font-bold shadow-lg"
+                    >
+                        Roll Dice
+                    </button>
+                )}
+
                 {/* Undo/Confirm Buttons */}
                 {effectiveState.dice && (
                     <div className="flex gap-4 mb-4">
                         <button
                             onClick={handleUndo}
-                            className={
-                                `px-6 py-2 rounded-lg transition-colors text-lg font-bold shadow ` +
-                                (!turnStartState || JSON.stringify(effectiveState) === JSON.stringify(turnStartState)
-                                    ? 'bg-red-200 text-white cursor-not-allowed'
-                                    : 'bg-red-500 text-white hover:bg-red-700')
-                            }
+                            className="px-6 py-2 bg-gray-400 text-white rounded-lg hover:bg-gray-500 transition-colors text-lg font-bold shadow"
                             disabled={!turnStartState || JSON.stringify(effectiveState) === JSON.stringify(turnStartState)}
                         >
                             Undo
                         </button>
                         <button
                             onClick={handleConfirmMoves}
-                            className={
-                                `px-6 py-2 rounded-lg transition-colors text-lg font-bold shadow ` +
-                                (!pendingGameState || JSON.stringify(effectiveState) === JSON.stringify(turnStartState) ||
-                                    !((effectiveState.usedDice && effectiveState.usedDice.every(u => u)) ||
-                                    (effectiveState.possibleMoves.length === 0 && effectiveState.usedDice && effectiveState.usedDice.some(u => !u)))
-                                ? 'bg-gray-300 text-gray-400 cursor-not-allowed'
-                                : 'bg-green-600 text-white hover:bg-green-700')
-                            }
-                            disabled={
-                                !pendingGameState ||
-                                JSON.stringify(effectiveState) === JSON.stringify(turnStartState) ||
-                                // Only enable if all dice used OR no moves available with unused dice
-                                !(
-                                    (effectiveState.usedDice && effectiveState.usedDice.every(u => u)) ||
-                                    (effectiveState.possibleMoves.length === 0 && effectiveState.usedDice && effectiveState.usedDice.some(u => !u))
-                                )
-                            }
+                            className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-lg font-bold shadow"
+                            disabled={!pendingGameState || JSON.stringify(effectiveState) === JSON.stringify(turnStartState)}
                         >
                             Confirm Moves
                         </button>
