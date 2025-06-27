@@ -843,16 +843,39 @@ const BackgammonBoard: React.FC = () => {
         // If only one possible move, auto-move
         if (possibleMoves.length === 1) {
             const move = possibleMoves[0];
+            // For doubles, ensure we use the first unused die of the correct value
+            if (effectiveState.dice && effectiveState.dice.filter((d, i) => !effectiveState.usedDice[i] && d === move.dice).length > 0) {
+                // Find the first unused die index of this value
+                const dieIdx = effectiveState.dice.findIndex((d, i) => !effectiveState.usedDice[i] && d === move.dice);
+                if (dieIdx !== -1) {
+                    // Mark only that die as used in makeMove
+                    makeMove(move.from, move.to, effectiveState.dice[dieIdx]);
+                    setSelectedPoint(null);
+                    return;
+                }
+            }
+            // Fallback (shouldn't happen):
             makeMove(move.from, move.to, move.dice);
             setSelectedPoint(null);
             return;
         }
-        // Prefer bear-off move if available
-        const bearOffMove = possibleMoves.find(move => move.to === -2);
-        if (bearOffMove) {
-            makeMove(bearOffMove.from, bearOffMove.to, bearOffMove.dice);
-            setSelectedPoint(null);
-            return;
+        // Prefer bear-off move if available (for multiple moves)
+        if (possibleMoves.length > 1) {
+            const bearOffMove = possibleMoves.find(move => move.to === -2);
+            if (bearOffMove) {
+                // For doubles, ensure we use the first unused die of the correct value
+                if (effectiveState.dice && effectiveState.dice.filter((d, i) => !effectiveState.usedDice[i] && d === bearOffMove.dice).length > 0) {
+                    const dieIdx = effectiveState.dice.findIndex((d, i) => !effectiveState.usedDice[i] && d === bearOffMove.dice);
+                    if (dieIdx !== -1) {
+                        makeMove(bearOffMove.from, bearOffMove.to, effectiveState.dice[dieIdx]);
+                        setSelectedPoint(null);
+                        return;
+                    }
+                }
+                makeMove(bearOffMove.from, bearOffMove.to, bearOffMove.dice);
+                setSelectedPoint(null);
+                return;
+            }
         }
 
         setSelectedPoint(pointIndex);
