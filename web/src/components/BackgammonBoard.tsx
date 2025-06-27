@@ -6,6 +6,7 @@ import Bar from './Bar';
 import Home from './Home';
 import Dice from './Dice';
 import Controls from './Controls';
+import { useSocketGame } from '../context/SocketContext';
 
 // Game state type definitions
 type Player = 'white' | 'black';
@@ -72,6 +73,15 @@ const BackgammonBoard: React.FC = () => {
     const [winner, setWinner] = useState<string | null>(null);
     // Track mouse position for drag preview
     const [dragMouse, setDragMouse] = useState<{ x: number; y: number } | null>(null);
+
+    // Multiplayer: join room and sync state
+    const { gameState: remoteGameState, sendMove, resetGame: resetGameSocket, joinRoom } = useSocketGame();
+    useEffect(() => {
+        joinRoom('default'); // For now, always join the default room
+    }, [joinRoom]);
+
+    // Use remoteGameState if available
+    const effectiveState = remoteGameState || pendingGameState || gameState;
 
     // --- Handler and helper function declarations ---
     // Memoize canBearOff to avoid unnecessary recalculations
@@ -210,9 +220,6 @@ const BackgammonBoard: React.FC = () => {
         });
     };
 
-    // Use pendingGameState for all move logic if it exists
-    const effectiveState = pendingGameState || gameState;
-
     // Update isValidMove to use effectiveState
     const isValidMove = (from: number, to: number, dice: number): boolean => {
         return effectiveState.possibleMoves.some(move =>
@@ -236,16 +243,7 @@ const BackgammonBoard: React.FC = () => {
     // New Game handler
     const handleNewGame = () => {
         setWinner(null);
-        resetGame({
-            board: [...freshBoard],
-            bar: { white: 0, black: 0 },
-            home: { white: 0, black: 0 },
-            currentPlayer: 'white',
-            dice: null,
-            usedDice: [false, false],
-            gamePhase: 'setup',
-            possibleMoves: []
-        });
+        resetGameSocket();
     };
 
     // --- End handler and helper function declarations ---
@@ -375,6 +373,7 @@ const BackgammonBoard: React.FC = () => {
             })
         };
         setPendingGameState(newState);
+        sendMove(newState); // Sync move to server
     };
 
     // Undo handler
