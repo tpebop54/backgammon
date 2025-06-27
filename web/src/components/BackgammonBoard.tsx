@@ -215,6 +215,21 @@ const BackgammonBoard: React.FC = () => {
         );
     };
 
+    // New Game handler
+    const handleNewGame = () => {
+        setWinner(null);
+        resetGame({
+            board: [...defaultBoard],
+            bar: { white: 0, black: 0 },
+            home: { white: 0, black: 0 },
+            currentPlayer: 'white',
+            dice: null,
+            usedDice: [false, false],
+            gamePhase: 'setup',
+            possibleMoves: []
+        });
+    };
+
     // --- End handler and helper function declarations ---
 
     // Calculate possible moves on game state change
@@ -792,8 +807,9 @@ const BackgammonBoard: React.FC = () => {
             {winner ? (
                 <div className="flex flex-col items-center justify-center min-h-screen bg-amber-100">
                     <div className="text-6xl font-bold text-amber-900 mb-8">🎉</div>
+                    <div className="text-3xl font-bold text-amber-900 mb-4">{winner} wins!</div>
                     <button
-                        onClick={() => resetGame(initialGameState)}
+                        onClick={handleNewGame}
                         className="px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xl"
                     >
                         New Game
