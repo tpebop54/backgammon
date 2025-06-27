@@ -1,6 +1,11 @@
 'use client'
 
 import React, { useState, useEffect, useCallback } from 'react';
+import Point from './Point';
+import Bar from './Bar';
+import Home from './Home';
+import Dice from './Dice';
+import Controls from './Controls';
 
 interface DebugEvent {
     [key: string]: any;
@@ -631,176 +636,51 @@ const BackgammonBoard: React.FC = () => {
     // In renderPoint, use effectiveState
     const renderPoint = (pointIndex: number, isTopRow: boolean) => {
         const pieces = effectiveState.board[pointIndex];
-        const absCount = Math.abs(pieces);
-        const player = pieces > 0 ? 'white' : 'black';
         const highlight = getPointHighlight(pointIndex);
         const isCurrentPlayerPiece = (effectiveState.currentPlayer === 'white' && pieces > 0) ||
             (effectiveState.currentPlayer === 'black' && pieces < 0);
         const hasValidMoves = effectiveState.possibleMoves.some(move => move.from === pointIndex);
         const canDrag = isCurrentPlayerPiece && hasValidMoves && effectiveState.gamePhase === 'playing';
-
-        // Only render pieces if there are any
-        if (absCount === 0) {
-            return (
-                <div
-                    key={`point-${pointIndex}`}
-                    className={`w-12 h-40 ${pointIndex % 2 === 0 ? 'bg-amber-600' : 'bg-amber-800'
-                        } ${isTopRow ? 'flex flex-col' : 'flex flex-col-reverse'
-                        } items-center justify-start p-1 cursor-pointer hover:bg-yellow-400 transition-colors ${highlight}`}
-                    onClick={() => handlePointClick(pointIndex)}
-                    onDragOver={(e) => handleDragOver(e, pointIndex)}
-                    onDragLeave={handleDragLeave}
-                    onDrop={(e) => handleDrop(e, pointIndex)}
-                >
-                    {/* Checker area only, no label here */}
-                </div>
-            );
-        }
-
-        // Create piece elements with proper spacing and alignment
-        const pieceElements = [];
-        const maxVisible = 7; // Show up to 6 checkers + overflow indicator
-        const actualVisible = Math.min(absCount, maxVisible);
-        const availableHeight = 160; // px
-        const checkerSize = 32; // px
-        let overlap = 0;
-        if (actualVisible > 1) {
-            overlap = (checkerSize * actualVisible - availableHeight) / (actualVisible - 1);
-            if (overlap < 0) overlap = 0;
-        }
-        for (let i = 0; i < Math.min(absCount, maxVisible - 1); i++) {
-            const isBeingDragged = canDrag && draggingPointIndex === pointIndex && draggingCheckerIndex === i;
-            // For top row, stack from top edge; for bottom row, stack from bottom edge
-            const pos = i * (checkerSize - overlap);
-            pieceElements.push(
-                <div
-                    key={i}
-                    draggable={canDrag}
-                    onClick={() => handlePointClick(pointIndex)}
-                    onDragStart={(e) => handleDragStart(e, pointIndex, i)}
-                    onDragEnd={handleDragEnd}
-                    className={`absolute left-1/2 -translate-x-1/2 w-8 h-8 rounded-full border-2 ${player === 'white'
-                        ? 'bg-white border-gray-800'
-                        : 'bg-gray-800 border-white'
-                        } select-none transition-transform ${canDrag ? 'cursor-move hover:scale-110 z-10' : 'cursor-pointer'}`}
-                    style={{
-                        userSelect: 'none',
-                        height: checkerSize,
-                        width: checkerSize,
-                        top: isTopRow ? pos : undefined,
-                        bottom: !isTopRow ? pos : undefined,
-                        visibility: isBeingDragged ? 'hidden' : 'visible',
-                    }}
-                />
-            );
-        }
-        // Add overflow indicator if more than 6 pieces
-        if (absCount > maxVisible - 1) {
-            const i = maxVisible - 1;
-            const pos = i * (checkerSize - overlap);
-            pieceElements.push(
-                <div
-                    key={`overflow-${pointIndex}`}
-                    draggable={canDrag}
-                    onClick={() => handlePointClick(pointIndex)}
-                    onDragStart={(e) => handleDragStart(e, pointIndex, i)}
-                    onDragEnd={handleDragEnd}
-                    className={`absolute left-1/2 -translate-x-1/2 w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold ${player === 'white'
-                        ? 'bg-white border-gray-800 text-gray-800'
-                        : 'bg-gray-800 border-white text-white'
-                        } select-none transition-transform ${canDrag ? 'cursor-move hover:scale-110 z-10' : 'cursor-pointer'}`}
-                    style={{
-                        userSelect: 'none',
-                        height: checkerSize,
-                        width: checkerSize,
-                        top: isTopRow ? pos : undefined,
-                        bottom: !isTopRow ? pos : undefined
-                    }}
-                >
-                    +{absCount - (maxVisible - 1)}
-                </div>
-            );
-        }
-
         return (
-            <div
+            <Point
                 key={`point-${pointIndex}`}
-                className={`w-12 h-40 ${pointIndex % 2 === 0 ? 'bg-amber-600' : 'bg-amber-800'
-                    } ${isTopRow ? 'flex flex-col' : 'flex flex-col-reverse'
-                    } items-center justify-start p-1 cursor-pointer hover:bg-yellow-400 transition-colors ${highlight} relative`}
-                onClick={() => handlePointClick(pointIndex)}
-                onDragOver={(e) => handleDragOver(e, pointIndex)}
-                onDragLeave={handleDragLeave}
-                onDrop={(e) => handleDrop(e, pointIndex)}
-                style={{ overflow: 'hidden' }}
-            >
-                <div style={{ position: 'relative', width: checkerSize, height: availableHeight, marginBottom: isTopRow ? 4 : 0, marginTop: !isTopRow ? 4 : 0 }}>
-                    {pieceElements}
-                </div>
-                {/* No label here */}
-            </div>
+                pointIndex={pointIndex}
+                isTopRow={isTopRow}
+                pieces={pieces}
+                highlight={highlight}
+                isCurrentPlayerPiece={isCurrentPlayerPiece}
+                hasValidMoves={hasValidMoves}
+                canDrag={canDrag}
+                draggingPointIndex={draggingPointIndex}
+                draggingCheckerIndex={draggingCheckerIndex}
+                handlePointClick={handlePointClick}
+                handleDragStart={handleDragStart}
+                handleDragEnd={handleDragEnd}
+                handleDragOver={handleDragOver}
+                handleDragLeave={handleDragLeave}
+                handleDrop={handleDrop}
+            />
         );
     };
 
     // Render the home area for a player
     const renderHome = (player: Player) => {
-        // Only highlight if dragging a checker of the correct player and a valid bear-off move exists
         const isDraggingOwnChecker = draggedPiece && draggedPiece.player === player;
         const canBearOffNow = canBearOff(effectiveState.currentPlayer, effectiveState.board) && effectiveState.currentPlayer === player;
         const hasValidBearOffMoves = effectiveState.possibleMoves.some(move => move.to === -2 && (!draggedPiece || move.from === draggedPiece.fromPoint));
-        const showDropZone = isDraggingOwnChecker && canBearOffNow && hasValidBearOffMoves;
-        const isBeingDraggedOver = dragOverPoint === -2 && showDropZone;
-
         return (
-            <div
-                className={`w-16 h-40 bg-green-600 flex flex-col items-center justify-center gap-2 transition-colors ${showDropZone ? 'hover:bg-green-500 cursor-pointer ring-2 ring-green-400 bg-green-100' : ''} ${isBeingDraggedOver ? 'ring-4 ring-purple-400 bg-purple-100' : ''}`}
-                onClick={showDropZone ? handleBearOff : undefined}
-                onDragOver={showDropZone ? (e) => { handleDragOver(e, -2); setDragOverPoint(-2); } : undefined}
-                onDragLeave={showDropZone ? (e) => { handleDragLeave(e); setDragOverPoint(null); } : undefined}
-                onDrop={showDropZone ? (e) => handleHomeDrop(e, player) : undefined}
-            >
-                <div className="text-white text-xs font-bold">HOME</div>
-                <div className="text-white text-lg font-bold">
-                    {gameState.home[player]}
-                </div>
-                <div className="text-white text-xs">
-                    {player.toUpperCase()}
-                </div>
-            </div>
-        );
-    };
-
-    // Render a thin bar with checkers in top (black) and bottom (white)
-    const renderBar = () => {
-        return (
-            <div className="w-4 h-40 bg-black flex flex-col justify-between items-center mx-1 relative">
-                {/* Black checkers (top) */}
-                <div className="flex flex-col items-center absolute top-0 left-0 right-0" style={{ height: '50%' }}>
-                    {Array.from({ length: effectiveState.bar.black }, (_, i) => (
-                        <div
-                            key={`bar-black-inboard-${i}`}
-                            draggable={effectiveState.currentPlayer === 'black' && effectiveState.possibleMoves.some(move => move.from === -1) && effectiveState.gamePhase === 'playing'}
-                            onDragStart={e => effectiveState.currentPlayer === 'black' && effectiveState.possibleMoves.some(move => move.from === -1) && effectiveState.gamePhase === 'playing' ? handleBarDragStart(e, 'black') : e.preventDefault()}
-                            onDragEnd={handleDragEnd}
-                            className={`w-4 h-4 rounded-full border-2 bg-gray-800 border-white select-none transition-transform ${effectiveState.currentPlayer === 'black' && effectiveState.possibleMoves.some(move => move.from === -1) && effectiveState.gamePhase === 'playing' ? 'cursor-move hover:scale-110' : ''}`}
-                            style={{ userSelect: 'none', margin: '1px 0' }}
-                        />
-                    ))}
-                </div>
-                {/* White checkers (bottom) */}
-                <div className="flex flex-col items-center absolute bottom-0 left-0 right-0" style={{ height: '50%' }}>
-                    {Array.from({ length: effectiveState.bar.white }, (_, i) => (
-                        <div
-                            key={`bar-white-inboard-${i}`}
-                            draggable={effectiveState.currentPlayer === 'white' && effectiveState.possibleMoves.some(move => move.from === -1) && effectiveState.gamePhase === 'playing'}
-                            onDragStart={e => effectiveState.currentPlayer === 'white' && effectiveState.possibleMoves.some(move => move.from === -1) && effectiveState.gamePhase === 'playing' ? handleBarDragStart(e, 'white') : e.preventDefault()}
-                            onDragEnd={handleDragEnd}
-                            className={`w-4 h-4 rounded-full border-2 bg-white border-gray-800 select-none transition-transform ${effectiveState.currentPlayer === 'white' && effectiveState.possibleMoves.some(move => move.from === -1) && effectiveState.gamePhase === 'playing' ? 'cursor-move hover:scale-110' : ''}`}
-                            style={{ userSelect: 'none', margin: '1px 0' }}
-                        />
-                    ))}
-                </div>
-            </div>
+            <Home
+                player={player}
+                homeCount={gameState.home[player]}
+                canBearOffNow={canBearOffNow}
+                isDraggingOwnChecker={!!isDraggingOwnChecker}
+                hasValidBearOffMoves={hasValidBearOffMoves}
+                dragOverPoint={dragOverPoint}
+                handleBearOff={handleBearOff}
+                handleDragOver={handleDragOver}
+                handleDragLeave={handleDragLeave}
+                handleHomeDrop={handleHomeDrop}
+            />
         );
     };
 
@@ -963,57 +843,23 @@ const BackgammonBoard: React.FC = () => {
                     <div className="text-xl font-bold text-amber-800 mb-2">
                         Current Player: <span className="text-2xl">{gameState.currentPlayer.toUpperCase()}</span>
                     </div>
-
-                    {effectiveState.dice && (
-                        <div className="flex items-center justify-center gap-4 mt-4">
-                            <div className="flex gap-2">
-                                {effectiveState.dice.map((die, index) => (
-                                    <div
-                                        key={index}
-                                        className={`w-12 h-12 border-2 border-gray-800 rounded-lg flex items-center justify-center text-2xl font-bold shadow-lg transition-all ${effectiveState.usedDice[index] ? 'bg-gray-400 text-gray-600 scale-90' : 'bg-white text-black'
-                                            }`}
-                                    >
-                                        {die}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
+                    <Dice dice={effectiveState.dice} usedDice={effectiveState.usedDice} />
                     {effectiveState.dice && effectiveState.possibleMoves.length === 0 && effectiveState.usedDice.some(u => !u) && (
                         <div className="text-red-600 font-bold mt-2">No moves available!</div>
                     )}
                 </div>
 
-                {/* Dice Roll Button */}
-                {!effectiveState.dice && (
-                    <button
-                        onClick={rollDice}
-                        className="mb-6 px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xl font-bold shadow-lg"
-                    >
-                        Roll Dice
-                    </button>
-                )}
-
-                {/* Undo/Confirm Buttons */}
-                {effectiveState.dice && (
-                    <div className="flex gap-4 mb-4">
-                        <button
-                            onClick={handleUndo}
-                            className="px-6 py-2 bg-gray-400 text-white rounded-lg hover:bg-gray-500 transition-colors text-lg font-bold shadow"
-                            disabled={!turnStartState || JSON.stringify(effectiveState) === JSON.stringify(turnStartState)}
-                        >
-                            Undo
-                        </button>
-                        <button
-                            onClick={handleConfirmMoves}
-                            className={`px-6 py-2 rounded-lg text-white text-lg font-bold shadow ${pendingGameState && JSON.stringify(effectiveState) !== JSON.stringify(turnStartState) && effectiveState.usedDice.every(u => u) ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-400 cursor-not-allowed'}`}
-                            disabled={!(pendingGameState && JSON.stringify(effectiveState) !== JSON.stringify(turnStartState) && effectiveState.usedDice.every(u => u))}
-                        >
-                            Confirm Moves
-                        </button>
-                    </div>
-                )}
+                {/* Controls */}
+                <Controls
+                    onUndo={handleUndo}
+                    onConfirm={handleConfirmMoves}
+                    onRollDice={rollDice}
+                    onNewGame={handleNewGame}
+                    canUndo={!!turnStartState && JSON.stringify(effectiveState) !== JSON.stringify(turnStartState)}
+                    canConfirm={!!(pendingGameState && JSON.stringify(effectiveState) !== JSON.stringify(turnStartState) && effectiveState.usedDice.every(u => u))}
+                    canRoll={!effectiveState.dice}
+                    showNewGame={!!winner}
+                />
 
                 {/* Black Bar (top, above board) */}
                 <div className="flex w-full justify-center mb-2">
@@ -1054,7 +900,14 @@ const BackgammonBoard: React.FC = () => {
                     {/* Top Row (Points 13-24) */}
                     <div className="flex gap-1 mb-2 items-end">
                         {Array.from({ length: 6 }, (_, i) => renderPoint(12 + i, true))}
-                        {renderBar()}
+                        <Bar
+                            bar={effectiveState.bar}
+                            currentPlayer={effectiveState.currentPlayer}
+                            possibleMoves={effectiveState.possibleMoves}
+                            gamePhase={effectiveState.gamePhase}
+                            handleBarDragStart={handleBarDragStart}
+                            handleDragEnd={handleDragEnd}
+                        />
                         {Array.from({ length: 6 }, (_, i) => renderPoint(18 + i, true))}
                         {renderHome('black')}
                     </div>
@@ -1062,7 +915,14 @@ const BackgammonBoard: React.FC = () => {
                     {/* Bottom Row (Points 12-1) */}
                     <div className="flex gap-1 items-start">
                         {Array.from({ length: 6 }, (_, i) => renderPoint(11 - i, false))}
-                        {renderBar()}
+                        <Bar
+                            bar={effectiveState.bar}
+                            currentPlayer={effectiveState.currentPlayer}
+                            possibleMoves={effectiveState.possibleMoves}
+                            gamePhase={effectiveState.gamePhase}
+                            handleBarDragStart={handleBarDragStart}
+                            handleDragEnd={handleDragEnd}
+                        />
                         {Array.from({ length: 6 }, (_, i) => renderPoint(5 - i, false))}
                         {renderHome('white')}
                     </div>
