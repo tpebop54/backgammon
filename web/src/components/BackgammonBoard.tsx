@@ -69,21 +69,23 @@ const BackgammonBoard: React.FC = () => {
     // Move all handler and helper function declarations above any usage in render or other handlers
 
     // --- Handler and helper function declarations ---
-    // Memoize canBearOff to avoid unnecessary re-creation
+    // Memoize canBearOff to avoid unnecessary recalculations
     const canBearOff = useCallback((player: Player, board: number[]): boolean => {
-        // console.log('canBearOff'); // Remove or comment out debug log
-        const homeBoard = player === 'white' ? [0, 1, 2, 3, 4, 5] : [18, 19, 20, 21, 22, 23];
-        for (let i = 0; i < 24; i++) {
-            const pieces = board[i];
-            const hasPlayerPiece = (player === 'white' && pieces > 0) || (player === 'black' && pieces < 0);
-            if (hasPlayerPiece && !homeBoard.includes(i)) {
-                return false;
+        if (player === 'white') {
+            // White's home is 0-5; check for any white checkers outside 0-5
+            for (let i = 6; i < 24; i++) {
+                if (board[i] > 0) return false;
+            }
+        } else {
+            // Black's home is 18-23; check for any black checkers outside 18-23
+            for (let i = 0; i < 18; i++) {
+                if (board[i] < 0) return false;
             }
         }
         return true;
-    }, []); // No dependencies, pure function
+    }, []);
 
-    // Memoize calculatePossibleMoves to avoid unnecessary re-creation
+    // Memoize calculatePossibleMoves to avoid unnecessary recalculations
     const calculatePossibleMoves = useCallback((state: GameState): Array<{ from: number; to: number; dice: number }> => {
         const moves: Array<{ from: number; to: number; dice: number }> = [];
         if (!state.dice || state.gamePhase !== 'playing') return moves;
@@ -116,11 +118,13 @@ const BackgammonBoard: React.FC = () => {
                 if (!isCurrentPlayerPiece) continue;
                 availableDice.forEach(dice => {
                     let to = from + (dice * direction);
+                    // --- Fix: For white, allow moves from higher to lower indices (e.g., from 5 to 0 with dice 5) ---
                     if (canBearOffNow && ((state.currentPlayer === 'white' && to < 0) ||
                         (state.currentPlayer === 'black' && to >= 24))) {
                         let higherPointExists = false;
                         if (state.currentPlayer === 'white') {
-                            for (let i = from + 1; i < 6; i++) {
+                            // For white, check for checkers on higher points (indices 0-5 are home)
+                            for (let i = from + 1; i <= 5; i++) {
                                 if (state.board[i] > 0) {
                                     higherPointExists = true;
                                     break;
@@ -131,6 +135,7 @@ const BackgammonBoard: React.FC = () => {
                                 moves.push({ from, to: -2, dice });
                             }
                         } else {
+                            // For black, check for checkers on higher points (indices 18-23 are home)
                             for (let i = from - 1; i >= 18; i--) {
                                 if (state.board[i] < 0) {
                                     higherPointExists = true;
@@ -144,6 +149,7 @@ const BackgammonBoard: React.FC = () => {
                         }
                         return;
                     }
+                    // --- Fix: For white, allow moves from 5 to 0, 5 to 1, etc. ---
                     if (to >= 0 && to < 24) {
                         const targetPieces = state.board[to];
                         const isBlocked = (state.currentPlayer === 'white' && targetPieces < -1) ||
@@ -169,7 +175,7 @@ const BackgammonBoard: React.FC = () => {
                 dice: diceArray,
                 usedDice: new Array(diceArray.length).fill(false),
                 gamePhase: 'playing',
-                possibleMoves: []
+                // Remove possibleMoves: [] here to let useEffect handle it
             };
             setPendingGameState(newState);
             setTurnStartState(newState);
@@ -189,7 +195,7 @@ const BackgammonBoard: React.FC = () => {
 
     // --- End handler and helper function declarations ---
 
-    // Calculate possible moves on game state change (single effect only)
+    // Calculate possible moves on game state change
     useEffect(() => {
         const state = pendingGameState || gameState;
         const newMoves = calculatePossibleMoves(state);
@@ -200,7 +206,7 @@ const BackgammonBoard: React.FC = () => {
                 setGameState(prev => ({ ...prev, possibleMoves: newMoves }));
             }
         }
-        // Only update if possibleMoves actually changed
+        // Do not update state in a way that triggers this effect again unless necessary
     }, [pendingGameState, gameState, calculatePossibleMoves]);
 
     // Handler for making a move
