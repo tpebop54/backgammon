@@ -847,6 +847,13 @@ const BackgammonBoard: React.FC = () => {
             setSelectedPoint(null);
             return;
         }
+        // Prefer bear-off move if available
+        const bearOffMove = possibleMoves.find(move => move.to === -2);
+        if (bearOffMove) {
+            makeMove(bearOffMove.from, bearOffMove.to, bearOffMove.dice);
+            setSelectedPoint(null);
+            return;
+        }
 
         setSelectedPoint(pointIndex);
         setInvalidDropFeedback(null);
