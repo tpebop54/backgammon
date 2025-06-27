@@ -67,6 +67,7 @@ const BackgammonBoard: React.FC = () => {
     const [selectedPoint, setSelectedPoint] = useState<number | null>(null);
     const [draggedPiece, setDraggedPiece] = useState<{ fromPoint: number; player: Player } | null>(null);
     const [dragOverPoint, setDragOverPoint] = useState<number | null>(null);
+    const [invalidDropFeedback, setInvalidDropFeedback] = useState<string | null>(null);
 
     // Helper function to check if a player can bear off
     const canBearOff = (player: Player, board: number[]): boolean => {
@@ -161,6 +162,16 @@ const BackgammonBoard: React.FC = () => {
         }
     }, [gameState.dice, gameState.usedDice, gameState.board, gameState.bar, gameState.currentPlayer, calculatePossibleMoves, gameState.possibleMoves]);
 
+    // Clear invalid drop feedback after a delay
+    useEffect(() => {
+        if (invalidDropFeedback) {
+            const timer = setTimeout(() => {
+                setInvalidDropFeedback(null);
+            }, 2000);
+            return () => clearTimeout(timer);
+        }
+    }, [invalidDropFeedback]);
+
     const isValidMove = (from: number, to: number, dice: number): boolean => {
         return gameState.possibleMoves.some(move =>
             move.from === from && move.to === to && move.dice === dice
@@ -250,6 +261,7 @@ const BackgammonBoard: React.FC = () => {
         });
 
         setSelectedPoint(null);
+        setInvalidDropFeedback(null);
     };
 
     const rollDice = () => {
@@ -268,16 +280,14 @@ const BackgammonBoard: React.FC = () => {
     };
 
     const handleDragStart = (e: React.DragEvent, pointIndex: number) => {
-        const pieces = gameState.board[pointIndex];
-        const player = pieces > 0 ? 'white' : 'black';
+        const piece = gameState.board[pointIndex];
+        const player = piece > 0 ? 'white' : 'black';
 
-        // Check if this is the current player's piece
         if (player !== gameState.currentPlayer) {
             e.preventDefault();
             return;
         }
 
-        // Check if there are valid moves from this point
         const hasValidMoves = gameState.possibleMoves.some(move => move.from === pointIndex);
         if (!hasValidMoves) {
             e.preventDefault();
@@ -288,6 +298,9 @@ const BackgammonBoard: React.FC = () => {
         setSelectedPoint(pointIndex);
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', '');
+        
+        // Add visual feedback
+        setInvalidDropFeedback(null);
     };
 
     const handleBarDragStart = (e: React.DragEvent, player: Player) => {
@@ -307,11 +320,25 @@ const BackgammonBoard: React.FC = () => {
         setSelectedPoint(-1);
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', '');
+        
+        // Add visual feedback
+        setInvalidDropFeedback(null);
     };
 
-    const handleDragOver = (e: React.DragEvent) => {
+    const handleDragOver = (e: React.DragEvent, pointIndex?: number) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
+        
+        if (pointIndex !== undefined) {
+            setDragOverPoint(pointIndex);
+        }
+    };
+
+    const handleDragLeave = (e: React.DragEvent) => {
+        // Only clear drag over if we're actually leaving the element
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+            setDragOverPoint(null);
+        }
     };
 
     const handleDrop = (e: React.DragEvent, toPoint: number) => {
@@ -327,8 +354,10 @@ const BackgammonBoard: React.FC = () => {
         if (possibleMove) {
             makeMove(draggedPiece.fromPoint, toPoint, possibleMove.dice);
         } else {
-            // Invalid move: "snap back" logic (handled by not changing state)
-            // You can also add visual feedback here if desired
+            // Invalid move feedback
+            const fromName = draggedPiece.fromPoint === -1 ? 'bar' : `point ${draggedPiece.fromPoint + 1}`;
+            const toName = toPoint === -2 ? 'home' : `point ${toPoint + 1}`;
+            setInvalidDropFeedback(`Invalid move from ${fromName} to ${toName}`);
         }
 
         setDraggedPiece(null);
@@ -347,7 +376,11 @@ const BackgammonBoard: React.FC = () => {
 
         if (possibleMove) {
             makeMove(draggedPiece.fromPoint, -2, possibleMove.dice);
-        } // else drop is invalid; do nothing
+        } else {
+            // Invalid move feedback
+            const fromName = draggedPiece.fromPoint === -1 ? 'bar' : `point ${draggedPiece.fromPoint + 1}`;
+            setInvalidDropFeedback(`Cannot bear off from ${fromName} - invalid move`);
+        }
 
         setDraggedPiece(null);
         setSelectedPoint(null);
@@ -356,6 +389,7 @@ const BackgammonBoard: React.FC = () => {
     const handleDragEnd = () => {
         setDraggedPiece(null);
         setSelectedPoint(null);
+        setDragOverPoint(null);
     };
 
     const handlePointClick = (pointIndex: number) => {
@@ -405,6 +439,7 @@ const BackgammonBoard: React.FC = () => {
 
     const getPointHighlight = (pointIndex: number): string => {
         if (selectedPoint === pointIndex) return 'ring-4 ring-blue-400';
+        if (dragOverPoint === pointIndex) return 'ring-4 ring-purple-400 bg-purple-100';
 
         if (selectedPoint !== null || draggedPiece) {
             const fromPoint = draggedPiece ? draggedPiece.fromPoint : selectedPoint;
@@ -427,7 +462,7 @@ const BackgammonBoard: React.FC = () => {
         const hasValidMoves = gameState.possibleMoves.some(move => move.from === pointIndex);
         const canDrag = isCurrentPlayerPiece && hasValidMoves && gameState.gamePhase === 'playing';
 
-        // Create piece elements
+        // Create piece elements - ALL pieces are draggable, not just the top one
         const pieceElements = [];
         const maxVisible = 5;
 
@@ -448,7 +483,7 @@ const BackgammonBoard: React.FC = () => {
             );
         }
 
-        // Add overflow indicator if more than 5 pieces
+        // Add overflow indicator if more than 5 pieces - this is also draggable
         if (absCount > maxVisible) {
             pieceElements.push(
                 <div
@@ -474,7 +509,8 @@ const BackgammonBoard: React.FC = () => {
                     } ${isTopRow ? 'flex flex-col' : 'flex flex-col-reverse'
                     } items-center justify-start p-1 cursor-pointer hover:bg-yellow-400 transition-colors ${highlight}`}
                 onClick={() => handlePointClick(pointIndex)}
-                onDragOver={handleDragOver}
+                onDragOver={(e) => handleDragOver(e, pointIndex)}
+                onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, pointIndex)}
             >
                 <div className="flex flex-col items-center gap-1">
@@ -499,7 +535,8 @@ const BackgammonBoard: React.FC = () => {
                 className={`w-16 h-40 bg-amber-900 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors ${selectedPoint === -1 ? 'ring-4 ring-blue-400' : ''
                     } ${currentPlayerOnBar ? 'hover:bg-amber-700' : ''}`}
                 onClick={handleBarClick}
-                onDragOver={handleDragOver}
+                onDragOver={(e) => handleDragOver(e)}
+                onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, -1)}
             >
                 <div className="text-white text-xs font-bold">BAR</div>
@@ -543,13 +580,22 @@ const BackgammonBoard: React.FC = () => {
             (selectedPoint !== null && selectedPoint >= 0 || draggedPiece);
         const hasValidBearOffMoves = gameState.possibleMoves.some(move => move.to === -2);
         const showDropZone = canBearOffNow && hasValidBearOffMoves;
+        const isBeingDraggedOver = dragOverPoint === -2;
 
         return (
             <div
-                className={`w-16 h-40 bg-green-600 flex flex-col items-center justify-center gap-2 transition-colors ${showDropZone ? 'hover:bg-green-500 cursor-pointer ring-2 ring-green-400 bg-green-100' : ''
-                    }`}
+                className={`w-16 h-40 bg-green-600 flex flex-col items-center justify-center gap-2 transition-colors ${
+                    showDropZone ? 'hover:bg-green-500 cursor-pointer ring-2 ring-green-400 bg-green-100' : ''
+                } ${isBeingDraggedOver ? 'ring-4 ring-purple-400 bg-purple-100' : ''}`}
                 onClick={canBearOffNow ? handleBearOff : undefined}
-                onDragOver={showDropZone ? handleDragOver : undefined}
+                onDragOver={showDropZone ? (e) => {
+                    handleDragOver(e, -2);
+                    setDragOverPoint(-2);
+                } : undefined}
+                onDragLeave={showDropZone ? (e) => {
+                    handleDragLeave(e);
+                    setDragOverPoint(null);
+                } : undefined}
                 onDrop={showDropZone ? (e) => handleHomeDrop(e, player) : undefined}
             >
                 <div className="text-white text-xs font-bold">HOME</div>
@@ -588,6 +634,13 @@ const BackgammonBoard: React.FC = () => {
                 <div className="text-xl font-bold text-amber-800 mb-2">
                     Current Player: <span className="text-2xl">{gameState.currentPlayer.toUpperCase()}</span>
                 </div>
+
+                {/* Invalid move feedback */}
+                {invalidDropFeedback && (
+                    <div className="text-red-600 font-bold mb-2 bg-red-100 p-2 rounded">
+                        {invalidDropFeedback}
+                    </div>
+                )}
 
                 {selectedPoint !== null && (
                     <div className="text-sm text-blue-600 font-semibold">
@@ -637,7 +690,6 @@ const BackgammonBoard: React.FC = () => {
             <div className="border-4 border-amber-900 bg-amber-200 p-4 shadow-2xl">
                 {/* Top Row (Points 13-24) */}
                 <div className="flex gap-1 mb-2">
-                    {renderHome('black')}
                     {Array.from({ length: 6 }, (_, i) => renderPoint(12 + i, true))}
                     {renderBar()}
                     {Array.from({ length: 6 }, (_, i) => renderPoint(18 + i, true))}
@@ -646,7 +698,6 @@ const BackgammonBoard: React.FC = () => {
 
                 {/* Bottom Row (Points 12-1) */}
                 <div className="flex gap-1">
-                    {renderHome('white')}
                     {Array.from({ length: 6 }, (_, i) => renderPoint(11 - i, false))}
                     {renderBar()}
                     {Array.from({ length: 6 }, (_, i) => renderPoint(5 - i, false))}
