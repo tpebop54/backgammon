@@ -834,142 +834,145 @@ const BackgammonBoard: React.FC = () => {
                 showNewGame={!!winner}
             />
 
-            {winner ? (
-                <div className="flex flex-col items-center justify-center min-h-screen bg-amber-100">
-                    <div className="text-6xl font-bold text-amber-900 mb-8">🎉</div>
-                    <div className="text-3xl font-bold text-amber-900 mb-4">{winner} wins!</div>
-                    <button
-                        onClick={handleNewGame}
-                        className="px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xl"
-                    >
-                        New Game
-                    </button>
-                </div>
-            ) : (
-                <>
-                {/* Drag Preview Checker */}
-                {draggedPiece && dragMouse && (
-                    <div
-                        style={{
-                            position: 'fixed',
-                            pointerEvents: 'none',
-                            left: dragMouse.x - 16, // Center 32x32 checker
-                            top: dragMouse.y - 16,
-                            zIndex: 10000,
-                            width: 32,
-                            height: 32,
-                        }}
-                    >
-                        <div
-                            className={`w-8 h-8 rounded-full border-2 ${draggedPiece.player === 'white' ? 'bg-white border-gray-800' : 'bg-gray-800 border-white'}`}
-                            style={{ width: 32, height: 32 }}
-                        />
-                    </div>
-                )}
-
-                {/* Game Info */}
-                <div className="mb-4 text-center">
-                    {/* Current Player header removed */}
-                    {/* Dice removed from here */}
-                    {effectiveState.dice && effectiveState.possibleMoves.length === 0 && effectiveState.usedDice.some(u => !u) && (
-                        <div className="text-red-600 font-bold mt-2">No moves available!</div>
-                    )}
-                </div>
-
-                {/* Black Bar (top, above board) */}
-                <div className="flex w-full justify-center mb-2">
-                    <div className="w-[384px] flex justify-end">
-                        {/* left padding for alignment */}
-                    </div>
-                    {/* Bar checkers are rendered only by the <Bar /> component below */}
-                    <div className="w-[128px]" /> {/* right padding for alignment */}
-                </div>
-
-                {/* Board */}
-                <div className="border-4 border-amber-900 bg-amber-200 p-4 shadow-2xl relative">
-                    {/* Dice overlay on board, centered vertically and horizontally on player's half */}
-                    {effectiveState.dice && (
-                        <div
-                            className={`absolute top-1/2 z-20 pointer-events-none transition-all duration-200 ` +
-                                (effectiveState.currentPlayer === 'black'
-                                    ? 'left-[25%] -translate-x-1/2 -translate-y-1/2'
-                                    : 'left-[75%] -translate-x-1/2 -translate-y-1/2')
-                            }
-                            style={{ width: 80 }}
+            {/* Consistent height container for winner and board */}
+            <div className="w-full flex flex-col items-center justify-center min-h-[700px]">
+                {winner ? (
+                    <div className="flex flex-col items-center justify-center w-full h-full">
+                        <div className="text-6xl font-bold text-amber-900 mb-8">🎉</div>
+                        <div className="text-3xl font-bold text-amber-900 mb-4">{winner} wins!</div>
+                        <button
+                            onClick={handleNewGame}
+                            className="px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xl"
                         >
-                            <div style={{ transform: 'scale(0.7)', width: '100%' }}>
-                                <Dice dice={effectiveState.dice} usedDice={effectiveState.usedDice} />
-                            </div>
+                            New Game
+                        </button>
+                    </div>
+                ) : (
+                    <>
+                    {/* Drag Preview Checker */}
+                    {draggedPiece && dragMouse && (
+                        <div
+                            style={{
+                                position: 'fixed',
+                                pointerEvents: 'none',
+                                left: dragMouse.x - 16, // Center 32x32 checker
+                                top: dragMouse.y - 16,
+                                zIndex: 10000,
+                                width: 32,
+                                height: 32,
+                            }}
+                        >
+                            <div
+                                className={`w-8 h-8 rounded-full border-2 ${draggedPiece.player === 'white' ? 'bg-white border-gray-800' : 'bg-gray-800 border-white'}`}
+                                style={{ width: 32, height: 32 }}
+                            />
                         </div>
                     )}
 
-                    {/* Top Labels (Points 13-24) */}
-                    <div className="flex gap-1 mb-1 items-end">
-                        {Array.from({ length: 6 }, (_, i) => (
-                            <div key={`label-top-${12 + i}`} className="w-12 text-center text-black font-bold text-xs">{13 + i}</div>
-                        ))}
-                        <div className="w-4 mx-1" /> {/* Bar placeholder */}
-                        {Array.from({ length: 6 }, (_, i) => (
-                            <div key={`label-top-${18 + i}`} className="w-12 text-center text-black font-bold text-xs">{19 + i}</div>
-                        ))}
-                        <div className="w-16" /> {/* Home placeholder */}
+                    {/* Game Info */}
+                    <div className="mb-4 text-center">
+                        {/* Current Player header removed */}
+                        {/* Dice removed from here */}
+                        {effectiveState.dice && effectiveState.possibleMoves.length === 0 && effectiveState.usedDice.some(u => !u) && (
+                            <div className="text-red-600 font-bold mt-2">No moves available!</div>
+                        )}
                     </div>
 
-                    {/* Top Row (Points 13-24) */}
-                    <div className="flex gap-1 mb-2 items-end">
-                        {Array.from({ length: 6 }, (_, i) => renderPoint(12 + i, true))}
-                        <Bar
-                            bar={effectiveState.bar}
-                            currentPlayer={effectiveState.currentPlayer}
-                            possibleMoves={effectiveState.possibleMoves}
-                            gamePhase={effectiveState.gamePhase}
-                            handleBarDragStart={handleBarDragStart}
-                            handleDragEnd={handleDragEnd}
-                            side="top"
-                        />
-                        {Array.from({ length: 6 }, (_, i) => renderPoint(18 + i, true))}
-                        {renderHome('black')}
+                    {/* Black Bar (top, above board) */}
+                    <div className="flex w-full justify-center mb-2">
+                        <div className="w-[384px] flex justify-end">
+                            {/* left padding for alignment */}
+                        </div>
+                        {/* Bar checkers are rendered only by the <Bar /> component below */}
+                        <div className="w-[128px]" /> {/* right padding for alignment */}
                     </div>
 
-                    {/* Bottom Row (Points 12-1) */}
-                    <div className="flex gap-1 items-start">
-                        {Array.from({ length: 6 }, (_, i) => renderPoint(11 - i, false))}
-                        <Bar
-                            bar={effectiveState.bar}
-                            currentPlayer={effectiveState.currentPlayer}
-                            possibleMoves={effectiveState.possibleMoves}
-                            gamePhase={effectiveState.gamePhase}
-                            handleBarDragStart={handleBarDragStart}
-                            handleDragEnd={handleDragEnd}
-                            side="bottom"
-                        />
-                        {Array.from({ length: 6 }, (_, i) => renderPoint(5 - i, false))}
-                        {renderHome('white')}
+                    {/* Board */}
+                    <div className="border-4 border-amber-900 bg-amber-200 p-4 shadow-2xl relative">
+                        {/* Dice overlay on board, centered vertically and horizontally on player's half */}
+                        {effectiveState.dice && (
+                            <div
+                                className={`absolute top-1/2 z-20 pointer-events-none transition-all duration-200 ` +
+                                    (effectiveState.currentPlayer === 'black'
+                                        ? 'left-[25%] -translate-x-1/2 -translate-y-1/2'
+                                        : 'left-[75%] -translate-x-1/2 -translate-y-1/2')
+                                }
+                                style={{ width: 80 }}
+                            >
+                                <div style={{ transform: 'scale(0.7)', width: '100%' }}>
+                                    <Dice dice={effectiveState.dice} usedDice={effectiveState.usedDice} />
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Top Labels (Points 13-24) */}
+                        <div className="flex gap-1 mb-1 items-end">
+                            {Array.from({ length: 6 }, (_, i) => (
+                                <div key={`label-top-${12 + i}`} className="w-12 text-center text-black font-bold text-xs">{13 + i}</div>
+                            ))}
+                            <div className="w-4 mx-1" /> {/* Bar placeholder */}
+                            {Array.from({ length: 6 }, (_, i) => (
+                                <div key={`label-top-${18 + i}`} className="w-12 text-center text-black font-bold text-xs">{19 + i}</div>
+                            ))}
+                            <div className="w-16" /> {/* Home placeholder */}
+                        </div>
+
+                        {/* Top Row (Points 13-24) */}
+                        <div className="flex gap-1 mb-2 items-end">
+                            {Array.from({ length: 6 }, (_, i) => renderPoint(12 + i, true))}
+                            <Bar
+                                bar={effectiveState.bar}
+                                currentPlayer={effectiveState.currentPlayer}
+                                possibleMoves={effectiveState.possibleMoves}
+                                gamePhase={effectiveState.gamePhase}
+                                handleBarDragStart={handleBarDragStart}
+                                handleDragEnd={handleDragEnd}
+                                side="top"
+                            />
+                            {Array.from({ length: 6 }, (_, i) => renderPoint(18 + i, true))}
+                            {renderHome('black')}
+                        </div>
+
+                        {/* Bottom Row (Points 12-1) */}
+                        <div className="flex gap-1 items-start">
+                            {Array.from({ length: 6 }, (_, i) => renderPoint(11 - i, false))}
+                            <Bar
+                                bar={effectiveState.bar}
+                                currentPlayer={effectiveState.currentPlayer}
+                                possibleMoves={effectiveState.possibleMoves}
+                                gamePhase={effectiveState.gamePhase}
+                                handleBarDragStart={handleBarDragStart}
+                                handleDragEnd={handleDragEnd}
+                                side="bottom"
+                            />
+                            {Array.from({ length: 6 }, (_, i) => renderPoint(5 - i, false))}
+                            {renderHome('white')}
+                        </div>
+
+                        {/* Bottom Labels (Points 12-1) */}
+                        <div className="flex gap-1 mt-1 items-start">
+                            {Array.from({ length: 6 }, (_, i) => (
+                                <div key={`label-bot-${11 - i}`} className="w-12 text-center text-black font-bold text-xs">{12 - i}</div>
+                            ))}
+                            <div className="w-4 mx-1" /> {/* Bar placeholder */}
+                            {Array.from({ length: 6 }, (_, i) => (
+                                <div key={`label-bot-${5 - i}`} className="w-12 text-center text-black font-bold text-xs">{6 - i}</div>
+                            ))}
+                            <div className="w-16" /> {/* Home placeholder */}
+                        </div>
                     </div>
 
-                    {/* Bottom Labels (Points 12-1) */}
-                    <div className="flex gap-1 mt-1 items-start">
-                        {Array.from({ length: 6 }, (_, i) => (
-                            <div key={`label-bot-${11 - i}`} className="w-12 text-center text-black font-bold text-xs">{12 - i}</div>
-                        ))}
-                        <div className="w-4 mx-1" /> {/* Bar placeholder */}
-                        {Array.from({ length: 6 }, (_, i) => (
-                            <div key={`label-bot-${5 - i}`} className="w-12 text-center text-black font-bold text-xs">{6 - i}</div>
-                        ))}
-                        <div className="w-16" /> {/* Home placeholder */}
+                    {/* White Bar (bottom, below board) */}
+                    <div className="flex w-full justify-center mt-2">
+                        <div className="w-[384px] flex justify-end">
+                            {/* left padding for alignment */}
+                        </div>
+                        {/* Bar checkers are rendered only by the <Bar /> component above */}
+                        <div className="w-[128px]" /> {/* right padding for alignment */}
                     </div>
-                </div>
-
-                {/* White Bar (bottom, below board) */}
-                <div className="flex w-full justify-center mt-2">
-                    <div className="w-[384px] flex justify-end">
-                        {/* left padding for alignment */}
-                    </div>
-                    {/* Bar checkers are rendered only by the <Bar /> component above */}
-                    <div className="w-[128px]" /> {/* right padding for alignment */}
-                </div>
-                </>
-            )}
+                    </>
+                )}
+            </div>
         </div>
     );
 };
