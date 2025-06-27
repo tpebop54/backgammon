@@ -131,7 +131,8 @@ const BackgammonBoard: React.FC = () => {
                         // or if the die matches the exact distance
                         let higherPointExists = false;
                         if (state.currentPlayer === 'white') {
-                            for (let i = 0; i < from; i++) {
+                            // Check for checkers on higher points (indices > from)
+                            for (let i = from + 1; i < 6; i++) {
                                 if (state.board[i] > 0) {
                                     higherPointExists = true;
                                     break;
@@ -142,16 +143,17 @@ const BackgammonBoard: React.FC = () => {
                                 moves.push({ from, to: -2, dice });
                             }
                         } else {
-                            for (let i = 23; i > from; i--) {
-                                if (state.board[i] < 0) {
-                                    higherPointExists = true;
-                                    break;
-                                }
+                          // Check for checkers on higher points (indices < from)
+                          for (let i = from - 1; i >= 18; i--) {
+                            if (state.board[i] < 0) {
+                              higherPointExists = true;
+                              break;
                             }
-                            const exact = (24 - from) === dice;
-                            if (exact || (!higherPointExists && (24 - from) < dice)) {
-                                moves.push({ from, to: -2, dice });
-                            }
+                          }
+                          const exact = (24 - from) === dice;
+                          if (exact || (!higherPointExists && (24 - from) < dice)) {
+                            moves.push({ from, to: -2, dice });
+                          }
                         }
                         return;
                     }
