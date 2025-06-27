@@ -75,7 +75,7 @@ const BackgammonBoard: React.FC = () => {
         if (!state.dice || state.gamePhase !== 'playing') return moves;
 
         const availableDice = state.dice.filter((_, index) => !state.usedDice[index]);
-        const direction = state.currentPlayer === 'white' ? 1 : -1;
+        const direction = state.currentPlayer === 'white' ? -1 : 1;
         const canBearOffNow = canBearOff(state.currentPlayer, state.board);
 
         // Check if player has pieces on the bar that must be moved first
