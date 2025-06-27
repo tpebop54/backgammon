@@ -25,7 +25,9 @@ const Controls: React.FC<ControlsProps> = ({
     <div className="flex gap-4 mb-4">
       <button
         onClick={onUndo}
-        className="px-6 py-2 bg-gray-400 text-white rounded-lg hover:bg-gray-500 transition-colors text-lg font-bold shadow"
+        className={`px-6 py-2 rounded-lg text-white text-lg font-bold shadow transition-colors ${
+          canUndo ? 'bg-purple-600 hover:bg-purple-700' : 'bg-gray-400 cursor-not-allowed'
+        }`}
         disabled={!canUndo}
       >
         Undo

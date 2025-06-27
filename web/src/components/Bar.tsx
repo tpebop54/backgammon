@@ -20,7 +20,7 @@ const Bar: React.FC<BarProps> = ({
 }) => {
   return (
     <div className="w-4 h-40 bg-black flex flex-col justify-between items-center mx-1 relative">
-      {/* Black checkers (top) */}
+      {/* Black checkers (top only) */}
       <div
         className="flex flex-col items-center absolute top-0 left-0 right-0"
         style={{ height: '50%' }}
@@ -52,7 +52,7 @@ const Bar: React.FC<BarProps> = ({
           />
         ))}
       </div>
-      {/* White checkers (bottom) */}
+      {/* White checkers (bottom only) */}
       <div
         className="flex flex-col items-center absolute bottom-0 left-0 right-0"
         style={{ height: '50%' }}
