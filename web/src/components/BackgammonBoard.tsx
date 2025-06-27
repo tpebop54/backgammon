@@ -234,6 +234,15 @@ const BackgammonBoard: React.FC = () => {
 
     // --- End handler and helper function declarations ---
 
+    // Automatically roll dice at the start of each turn
+    useEffect(() => {
+        const state = pendingGameState || gameState;
+        if (state.gamePhase === 'setup' && !state.dice && !winner) {
+            rollDice();
+        }
+        // eslint-disable-next-line
+    }, [gameState.currentPlayer, gameState.gamePhase, winner]);
+
     // Calculate possible moves on game state change
     useEffect(() => {
         const state = pendingGameState || gameState;
@@ -276,6 +285,40 @@ const BackgammonBoard: React.FC = () => {
         const diceIndex = state.dice!.indexOf(dice);
         const newUsedDice = [...state.usedDice];
         newUsedDice[diceIndex] = true;
+
+        // Check for win immediately after bearing off
+        const totalWhite = newHome.white;
+        const totalBlack = newHome.black;
+        const whiteOnBoard = newBoard.reduce((sum, n) => sum + (n > 0 ? n : 0), 0) + newBar.white;
+        const blackOnBoard = newBoard.reduce((sum, n) => sum + (n < 0 ? -n : 0), 0) + newBar.black;
+        if (totalWhite === initialWhiteCheckers && whiteOnBoard === 0) {
+            setWinner('WHITE');
+            setGameState({
+                ...state,
+                board: newBoard,
+                bar: newBar,
+                home: newHome,
+                usedDice: newUsedDice,
+                gamePhase: 'finished',
+            });
+            setPendingGameState(null);
+            setTurnStartState(null);
+            return;
+        }
+        if (totalBlack === initialBlackCheckers && blackOnBoard === 0) {
+            setWinner('BLACK');
+            setGameState({
+                ...state,
+                board: newBoard,
+                bar: newBar,
+                home: newHome,
+                usedDice: newUsedDice,
+                gamePhase: 'finished',
+            });
+            setPendingGameState(null);
+            setTurnStartState(null);
+            return;
+        }
 
         // Do not switch player here; only after all dice are used and moves are confirmed
         // Instead, keep currentPlayer the same
@@ -519,33 +562,33 @@ const BackgammonBoard: React.FC = () => {
     const handlePointClick = (pointIndex: number) => {
         // Prevent any moves if all dice are used
         if (!effectiveState.dice || effectiveState.usedDice.every(u => u)) return;
-
         if (effectiveState.gamePhase !== 'playing' || !effectiveState.dice) return;
-
         const pieces = effectiveState.board[pointIndex];
         const isCurrentPlayerPiece = (effectiveState.currentPlayer === 'white' && pieces > 0) ||
             (effectiveState.currentPlayer === 'black' && pieces < 0);
-
         // If clicking on current player's piece, select it
-        if (isCurrentPlayerPiece && selectedPoint !== pointIndex) {
-            // Check if there is only one possible move for this checker
+        if (isCurrentPlayerPiece) {
+            // Find all possible moves for this checker
             const movesForThisChecker = effectiveState.possibleMoves.filter(move => move.from === pointIndex);
             if (movesForThisChecker.length === 1) {
                 // Only one move, make it automatically
                 const move = movesForThisChecker[0];
                 makeMove(move.from, move.to, move.dice);
                 return;
+            } else if (movesForThisChecker.length > 1) {
+                // Auto-select the move that uses the largest die (farthest move)
+                const move = movesForThisChecker.reduce((a, b) => (a.dice > b.dice ? a : b));
+                makeMove(move.from, move.to, move.dice);
+                return;
             }
             setSelectedPoint(pointIndex);
             return;
         }
-
         // If we have a selected point, try to make a move
         if (selectedPoint !== null) {
             const possibleMove = effectiveState.possibleMoves.find(move =>
                 move.from === selectedPoint && move.to === pointIndex
             );
-
             if (possibleMove) {
                 makeMove(selectedPoint, pointIndex, possibleMove.dice);
             } else {
@@ -890,8 +933,8 @@ const BackgammonBoard: React.FC = () => {
                         </button>
                         <button
                             onClick={handleConfirmMoves}
-                            className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-lg font-bold shadow"
-                            disabled={!pendingGameState || JSON.stringify(effectiveState) === JSON.stringify(turnStartState)}
+                            className={`px-6 py-2 rounded-lg text-white text-lg font-bold shadow ${pendingGameState && JSON.stringify(effectiveState) !== JSON.stringify(turnStartState) && effectiveState.usedDice.some(u => u) ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-400 cursor-not-allowed'}`}
+                            disabled={!(pendingGameState && JSON.stringify(effectiveState) !== JSON.stringify(turnStartState) && effectiveState.usedDice.some(u => u))}
                         >
                             Confirm Moves
                         </button>
