@@ -297,31 +297,7 @@ const BackgammonBoard: React.FC = () => {
         setDraggedPiece({ fromPoint: pointIndex, player });
         setSelectedPoint(pointIndex);
         e.dataTransfer.effectAllowed = 'move';
-
-        // Create a custom drag image
-        const dragImage = document.createElement('div');
-        dragImage.style.width = '32px';
-        dragImage.style.height = '32px';
-        dragImage.style.borderRadius = '50%';
-        dragImage.style.border = '2px solid';
-        dragImage.style.position = 'absolute';
-        dragImage.style.top = '-1000px';
-
-        if (player === 'white') {
-            dragImage.style.backgroundColor = 'white';
-            dragImage.style.borderColor = '#1f2937';
-        } else {
-            dragImage.style.backgroundColor = '#1f2937';
-            dragImage.style.borderColor = 'white';
-        }
-
-        document.body.appendChild(dragImage);
-        e.dataTransfer.setDragImage(dragImage, 16, 16);
-
-        // Clean up drag image after a short delay
-        setTimeout(() => {
-            document.body.removeChild(dragImage);
-        }, 0);
+        e.dataTransfer.setData('application/json', JSON.stringify({ fromPoint: pointIndex, player }));
 
         setInvalidDropFeedback(null);
     };
@@ -332,7 +308,6 @@ const BackgammonBoard: React.FC = () => {
             return;
         }
 
-        // Check if there are valid moves from the bar
         const hasValidMoves = gameState.possibleMoves.some(move => move.from === -1);
         if (!hasValidMoves) {
             e.preventDefault();
@@ -342,9 +317,8 @@ const BackgammonBoard: React.FC = () => {
         setDraggedPiece({ fromPoint: -1, player });
         setSelectedPoint(-1);
         e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', '');
+        e.dataTransfer.setData('application/json', JSON.stringify({ fromPoint: -1, player }));
 
-        // Add visual feedback
         setInvalidDropFeedback(null);
     };
 
@@ -368,17 +342,46 @@ const BackgammonBoard: React.FC = () => {
         e.preventDefault();
         setDragOverPoint(null);
 
-        if (!draggedPiece) return;
+        let dragData = draggedPiece;
 
-        const possibleMove = gameState.possibleMoves.find(move =>
-            move.from === draggedPiece.fromPoint && move.to === toPoint
-        );
+        // Try to get drag data from the event if draggedPiece is null
+        if (!dragData) {
+            try {
+                const dataString = e.dataTransfer.getData('application/json');
+                if (dataString) {
+                    dragData = JSON.parse(dataString);
+                }
+            } catch (err) {
+                console.error('Failed to parse drag data:', err);
+            }
+        }
 
-        if (possibleMove) {
-            makeMove(draggedPiece.fromPoint, toPoint, possibleMove.dice);
+        if (!dragData) {
+            setDraggedPiece(null);
+            setSelectedPoint(null);
+            return;
+        }
+
+        // Find available dice values for this move
+        const availableDice = gameState.dice?.filter((_, index) => !gameState.usedDice[index]) || [];
+
+        // Try each available dice value to see if the move is valid
+        let validMove = null;
+        for (const dice of availableDice) {
+            const possibleMove = gameState.possibleMoves.find(move =>
+                move.from === dragData.fromPoint && move.to === toPoint && move.dice === dice
+            );
+            if (possibleMove) {
+                validMove = possibleMove;
+                break;
+            }
+        }
+
+        if (validMove) {
+            makeMove(dragData.fromPoint, toPoint, validMove.dice);
         } else {
             // Invalid move feedback
-            const fromName = draggedPiece.fromPoint === -1 ? 'bar' : `point ${draggedPiece.fromPoint + 1}`;
+            const fromName = dragData.fromPoint === -1 ? 'bar' : `point ${dragData.fromPoint + 1}`;
             const toName = toPoint === -2 ? 'home' : `point ${toPoint + 1}`;
             setInvalidDropFeedback(`Invalid move from ${fromName} to ${toName}`);
         }
@@ -391,24 +394,49 @@ const BackgammonBoard: React.FC = () => {
         e.preventDefault();
         setDragOverPoint(null);
 
-        if (!draggedPiece || draggedPiece.player !== player) return;
+        let dragData = draggedPiece;
 
-        const possibleMove = gameState.possibleMoves.find(move =>
-            move.from === draggedPiece.fromPoint && move.to === -2
-        );
+        if (!dragData) {
+            try {
+                const dataString = e.dataTransfer.getData('application/json');
+                if (dataString) {
+                    dragData = JSON.parse(dataString);
+                }
+            } catch (err) {
+                console.error('Failed to parse drag data:', err);
+            }
+        }
 
-        if (possibleMove) {
-            makeMove(draggedPiece.fromPoint, -2, possibleMove.dice);
+        if (!dragData || dragData.player !== player) {
+            setDraggedPiece(null);
+            setSelectedPoint(null);
+            return;
+        }
+
+        // Find available dice values for bearing off
+        const availableDice = gameState.dice?.filter((_, index) => !gameState.usedDice[index]) || [];
+
+        let validMove = null;
+        for (const dice of availableDice) {
+            const possibleMove = gameState.possibleMoves.find(move =>
+                move.from === dragData.fromPoint && move.to === -2 && move.dice === dice
+            );
+            if (possibleMove) {
+                validMove = possibleMove;
+                break;
+            }
+        }
+
+        if (validMove) {
+            makeMove(dragData.fromPoint, -2, validMove.dice);
         } else {
-            // Invalid move feedback
-            const fromName = draggedPiece.fromPoint === -1 ? 'bar' : `point ${draggedPiece.fromPoint + 1}`;
+            const fromName = dragData.fromPoint === -1 ? 'bar' : `point ${dragData.fromPoint + 1}`;
             setInvalidDropFeedback(`Cannot bear off from ${fromName} - invalid move`);
         }
 
         setDraggedPiece(null);
         setSelectedPoint(null);
     };
-
     const handleDragEnd = () => {
         setDraggedPiece(null);
         setSelectedPoint(null);
