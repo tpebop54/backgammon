@@ -851,7 +851,7 @@ const BackgammonBoard: React.FC = () => {
                     <div className="text-xl font-bold text-amber-800 mb-2">
                         Current Player: <span className="text-2xl">{gameState.currentPlayer.toUpperCase()}</span>
                     </div>
-                    <Dice dice={effectiveState.dice} usedDice={effectiveState.usedDice} />
+                    {/* Dice removed from here */}
                     {effectiveState.dice && effectiveState.possibleMoves.length === 0 && effectiveState.usedDice.some(u => !u) && (
                         <div className="text-red-600 font-bold mt-2">No moves available!</div>
                     )}
@@ -877,7 +877,23 @@ const BackgammonBoard: React.FC = () => {
                 </div>
 
                 {/* Board */}
-                <div className="border-4 border-amber-900 bg-amber-200 p-4 shadow-2xl">
+                <div className="border-4 border-amber-900 bg-amber-200 p-4 shadow-2xl relative">
+                    {/* Dice overlay on board, centered vertically and horizontally on player's half */}
+                    {effectiveState.dice && (
+                        <div
+                            className={`absolute top-1/2 z-20 pointer-events-none transition-all duration-200 ` +
+                                (effectiveState.currentPlayer === 'black'
+                                    ? 'left-[25%] -translate-x-1/2 -translate-y-1/2'
+                                    : 'left-[75%] -translate-x-1/2 -translate-y-1/2')
+                            }
+                            style={{ width: 80 }}
+                        >
+                            <div style={{ transform: 'scale(0.7)', width: '100%' }}>
+                                <Dice dice={effectiveState.dice} usedDice={effectiveState.usedDice} />
+                            </div>
+                        </div>
+                    )}
+
                     {/* Top Labels (Points 13-24) */}
                     <div className="flex gap-1 mb-1 items-end">
                         {Array.from({ length: 6 }, (_, i) => (
