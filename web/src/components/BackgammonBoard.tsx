@@ -831,8 +831,12 @@ const BackgammonBoard: React.FC = () => {
 
         // Only consider moves using unused dice
         const unusedDice = effectiveState.dice.filter((_, idx) => !effectiveState.usedDice[idx]);
-        const possibleMoves = effectiveState.possibleMoves.filter(move =>
+        let possibleMoves = effectiveState.possibleMoves.filter(move =>
             move.from === pointIndex && unusedDice.includes(move.dice)
+        );
+        // Deduplicate possibleMoves by from, to, dice
+        possibleMoves = possibleMoves.filter((move, idx, arr) =>
+            arr.findIndex(m => m.from === move.from && m.to === move.to && m.dice === move.dice) === idx
         );
         if (possibleMoves.length === 1) {
             const move = possibleMoves[0];
