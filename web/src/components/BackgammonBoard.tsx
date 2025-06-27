@@ -6,6 +6,7 @@ import Bar from './Bar';
 import Home from './Home';
 import Dice from './Dice';
 import Controls from './Controls';
+import { useSocketGame } from '../context/SocketContext';
 
 // Game state type definitions
 type Player = 'white' | 'black';
@@ -72,6 +73,15 @@ const BackgammonBoard: React.FC = () => {
     const [winner, setWinner] = useState<string | null>(null);
     // Track mouse position for drag preview
     const [dragMouse, setDragMouse] = useState<{ x: number; y: number } | null>(null);
+
+    // Multiplayer: join room and sync state
+    const { gameState: remoteGameState, sendMove, resetGame: resetGameSocket, joinRoom, connected } = useSocketGame();
+    useEffect(() => {
+        joinRoom('default'); // For now, always join the default room
+    }, [joinRoom]);
+
+    // Use remoteGameState if available
+    const effectiveState = remoteGameState || pendingGameState || gameState;
 
     // --- Handler and helper function declarations ---
     // Memoize canBearOff to avoid unnecessary recalculations
@@ -210,9 +220,6 @@ const BackgammonBoard: React.FC = () => {
         });
     };
 
-    // Use pendingGameState for all move logic if it exists
-    const effectiveState = pendingGameState || gameState;
-
     // Update isValidMove to use effectiveState
     const isValidMove = (from: number, to: number, dice: number): boolean => {
         return effectiveState.possibleMoves.some(move =>
@@ -236,24 +243,21 @@ const BackgammonBoard: React.FC = () => {
     // New Game handler
     const handleNewGame = () => {
         setWinner(null);
-        resetGame({
-            board: [...freshBoard],
-            bar: { white: 0, black: 0 },
-            home: { white: 0, black: 0 },
-            currentPlayer: 'white',
-            dice: null,
-            usedDice: [false, false],
-            gamePhase: 'setup',
-            possibleMoves: []
-        });
+        resetGameSocket();
     };
 
     // --- End handler and helper function declarations ---
 
-    // Automatically roll dice at the start of each turn
+    // Automatically roll dice at the start of the first turn only
     useEffect(() => {
         const state = pendingGameState || gameState;
-        if (state.gamePhase === 'setup' && !state.dice && !winner) {
+        // Only roll dice if the game is in setup, no dice, no winner, and it's the very first turn
+        if (
+            state.gamePhase === 'setup' &&
+            !state.dice &&
+            !winner &&
+            !turnStartState // Only at very first game load
+        ) {
             rollDice();
         }
         // eslint-disable-next-line
@@ -279,26 +283,35 @@ const BackgammonBoard: React.FC = () => {
         const newBoard = [...state.board];
         const player = state.currentPlayer;
         const direction = player === 'white' ? 1 : -1;
+        const opponent = player === 'white' ? 'black' : 'white';
+        // Always use the same newBar and newHome objects
+        const newBar = { ...state.bar };
+        const newHome = { ...state.home };
 
         // Move checker on the board
         if (from !== -1) {
             newBoard[from] -= player === 'white' ? 1 : -1;
         }
+        // Handle hitting opponent's blot (single checker)
+        if (to !== -2 && to !== -1) {
+            const dest = newBoard[to];
+            if ((player === 'white' && dest === -1) || (player === 'black' && dest === 1)) {
+                // Move opponent checker to bar
+                newBoard[to] = 0;
+                newBar[opponent] += 1;
+            }
+        }
+        // Place our checker (after possible hit)
         if (to !== -2) {
             newBoard[to] += player === 'white' ? 1 : -1;
         }
-
-        // Update bar and home
-        const newBar = { ...state.bar };
-        const newHome = { ...state.home };
+        // Update bar and home for our own checker
         if (from === -1) {
             newBar[player] -= 1;
         } else if (to === -2) {
             newHome[player] += 1;
         }
-
         // Update used dice
-        // Find the first unused die of the correct value and mark it as used
         let diceIndex = -1;
         if (state.dice) {
             for (let i = 0; i < state.dice.length; i++) {
@@ -312,7 +325,6 @@ const BackgammonBoard: React.FC = () => {
         if (diceIndex !== -1) {
             newUsedDice[diceIndex] = true;
         }
-
         // Check for win immediately after bearing off
         const totalWhite = newHome.white;
         const totalBlack = newHome.black;
@@ -346,26 +358,22 @@ const BackgammonBoard: React.FC = () => {
             setTurnStartState(null);
             return;
         }
-
-        // Do not switch player here; only after all dice are used and moves are confirmed
-        // Instead, keep currentPlayer the same
         const newState: GameState = {
             ...state,
             board: newBoard,
             bar: newBar,
             home: newHome,
             usedDice: newUsedDice,
-            // currentPlayer stays the same
             possibleMoves: calculatePossibleMoves({
                 ...state,
                 board: newBoard,
                 bar: newBar,
                 home: newHome,
                 usedDice: newUsedDice,
-                // currentPlayer stays the same
             })
         };
         setPendingGameState(newState);
+        sendMove(newState); // Sync move to server
     };
 
     // Undo handler
@@ -378,7 +386,7 @@ const BackgammonBoard: React.FC = () => {
     // Confirm moves handler
     const handleConfirmMoves = () => {
         if (!pendingGameState) return;
-        // Switch player and reset dice/usedDice
+        // Switch player and roll dice for next turn immediately (no flicker)
         const nextPlayer = pendingGameState.currentPlayer === 'white' ? 'black' : 'white';
         // Calculate home and on-board for both players
         const totalWhite = pendingGameState.home.white;
@@ -405,16 +413,21 @@ const BackgammonBoard: React.FC = () => {
             setTurnStartState(null);
             return;
         }
-        setGameState({
+        // Roll dice for next player immediately
+        const dice1 = Math.floor(Math.random() * 6) + 1;
+        const dice2 = Math.floor(Math.random() * 6) + 1;
+        const diceArray = dice1 === dice2 ? [dice1, dice1, dice1, dice1] : [dice1, dice2];
+        const nextState: GameState = {
             ...pendingGameState,
-            currentPlayer: nextPlayer,
-            dice: null,
-            usedDice: [false, false],
-            gamePhase: 'setup',
-            possibleMoves: []
-        });
+            currentPlayer: nextPlayer as Player,
+            dice: diceArray,
+            usedDice: new Array(diceArray.length).fill(false),
+            gamePhase: 'playing',
+            possibleMoves: [] // will be recalculated by useEffect
+        };
+        setGameState(nextState);
         setPendingGameState(null);
-        setTurnStartState(null);
+        setTurnStartState(nextState);
     };
 
     // In handleDragStart, use effectiveState
@@ -808,166 +821,163 @@ const BackgammonBoard: React.FC = () => {
 
     return (
         <div className="flex flex-col items-center p-8 bg-amber-100 min-h-screen">
-            {winner ? (
-                <div className="flex flex-col items-center justify-center min-h-screen bg-amber-100">
-                    <div className="text-6xl font-bold text-amber-900 mb-8">🎉</div>
-                    <div className="text-3xl font-bold text-amber-900 mb-4">{winner} wins!</div>
-                    <button
-                        onClick={handleNewGame}
-                        className="px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xl"
-                    >
-                        New Game
-                    </button>
-                </div>
-            ) : (
-                <>
-                {/* Drag Preview Checker */}
-                {draggedPiece && dragMouse && (
-                    <div
-                        style={{
-                            position: 'fixed',
-                            pointerEvents: 'none',
-                            left: dragMouse.x - 16, // Center 32x32 checker
-                            top: dragMouse.y - 16,
-                            zIndex: 10000,
-                            width: 32,
-                            height: 32,
-                        }}
-                    >
+            {/* Connection indicator */}
+            <div className="flex items-center mb-2">
+                <span className={`inline-block w-3 h-3 rounded-full mr-2 ${connected ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                <span className="text-xs font-semibold text-gray-700">{connected ? 'Connected' : 'Disconnected'}</span>
+            </div>
+
+            <h1 className="text-3xl font-bold mb-8 text-amber-900">Backgammon</h1>
+
+            {/* Controls always rendered, but disabled/hidden if winner */}
+            <Controls
+                onUndo={handleUndo}
+                onConfirm={handleConfirmMoves}
+                onNewGame={handleNewGame}
+                canUndo={!winner && !!pendingGameState && JSON.stringify(effectiveState) !== JSON.stringify(turnStartState)}
+                canConfirm={!winner && !!(pendingGameState && JSON.stringify(effectiveState) !== JSON.stringify(turnStartState) && effectiveState.usedDice.every(u => u))}
+                showNewGame={!!winner}
+            />
+
+            {/* Consistent height container for winner and board */}
+            <div className="w-full flex flex-col items-center justify-center h-[700px] overflow-hidden relative">
+                {winner ? (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center w-full h-full bg-amber-100 z-30">
+                        <div className="text-6xl font-bold text-amber-900 mb-8">🎉</div>
+                        <div className="text-3xl font-bold text-amber-900 mb-4">{winner} wins!</div>
+                        <button
+                            onClick={handleNewGame}
+                            className="px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xl"
+                        >
+                            New Game
+                        </button>
+                    </div>
+                ) : (
+                    <>
+                    {/* Drag Preview Checker */}
+                    {draggedPiece && dragMouse && (
                         <div
-                            className={`w-8 h-8 rounded-full border-2 ${draggedPiece.player === 'white' ? 'bg-white border-gray-800' : 'bg-gray-800 border-white'}`}
-                            style={{ width: 32, height: 32 }}
-                        />
+                            style={{
+                                position: 'fixed',
+                                pointerEvents: 'none',
+                                left: dragMouse.x - 16, // Center 32x32 checker
+                                top: dragMouse.y - 16,
+                                zIndex: 10000,
+                                width: 32,
+                                height: 32,
+                            }}
+                        >
+                            <div
+                                className={`w-8 h-8 rounded-full border-2 ${draggedPiece.player === 'white' ? 'bg-white border-gray-800' : 'bg-gray-800 border-white'}`}
+                                style={{ width: 32, height: 32 }}
+                            />
+                        </div>
+                    )}
+
+                    {/* Game Info */}
+                    <div className="mb-4 text-center h-6 flex items-center justify-center">
+                        {/* Current Player header removed */}
+                        {/* Dice removed from here */}
+                        {effectiveState.dice && effectiveState.possibleMoves.length === 0 && effectiveState.usedDice.some(u => !u) ? (
+                            <div className="text-red-600 font-bold">No moves available!</div>
+                        ) : null}
                     </div>
+
+                    {/* Black Bar (top, above board) */}
+                    <div className="flex w-full justify-center mb-2">
+                        <div className="w-[384px] flex justify-end">
+                            {/* left padding for alignment */}
+                        </div>
+                        {/* Bar checkers are rendered only by the <Bar /> component below */}
+                        <div className="w-[128px]" /> {/* right padding for alignment */}
+                    </div>
+
+                    {/* Board */}
+                    <div className="border-4 border-amber-900 bg-amber-200 p-4 shadow-2xl relative overflow-hidden">
+                        {/* Dice overlay on board, centered vertically and horizontally on player's half */}
+                        {effectiveState.dice && (
+                            <div
+                                className={`absolute top-1/2 z-20 pointer-events-none transition-all duration-200 ` +
+                                    (effectiveState.currentPlayer === 'black'
+                                        ? 'left-[25%] -translate-x-1/2 -translate-y-1/2'
+                                        : 'left-[75%] -translate-x-1/2 -translate-y-1/2')
+                                }
+                                style={{ width: 80 }}
+                            >
+                                <div style={{ transform: 'scale(0.7)', width: '100%' }}>
+                                    <Dice dice={effectiveState.dice} usedDice={effectiveState.usedDice} />
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Top Labels (Points 13-24) */}
+                        <div className="flex gap-1 mb-1 items-end">
+                            {Array.from({ length: 6 }, (_, i) => (
+                                <div key={`label-top-${12 + i}`} className="w-12 text-center text-black font-bold text-xs">{13 + i}</div>
+                            ))}
+                            <div className="w-4 mx-1" /> {/* Bar placeholder */}
+                            {Array.from({ length: 6 }, (_, i) => (
+                                <div key={`label-top-${18 + i}`} className="w-12 text-center text-black font-bold text-xs">{19 + i}</div>
+                            ))}
+                            <div className="w-16" /> {/* Home placeholder */}
+                        </div>
+
+                        {/* Top Row (Points 13-24) */}
+                        <div className="flex gap-1 mb-2 items-end">
+                            {Array.from({ length: 6 }, (_, i) => renderPoint(12 + i, true))}
+                            <Bar
+                                bar={effectiveState.bar}
+                                currentPlayer={effectiveState.currentPlayer}
+                                possibleMoves={effectiveState.possibleMoves}
+                                gamePhase={effectiveState.gamePhase}
+                                handleBarDragStart={handleBarDragStart}
+                                handleDragEnd={handleDragEnd}
+                                side="top"
+                            />
+                            {Array.from({ length: 6 }, (_, i) => renderPoint(18 + i, true))}
+                            {renderHome('black')}
+                        </div>
+
+                        {/* Bottom Row (Points 12-1) */}
+                        <div className="flex gap-1 items-start">
+                            {Array.from({ length: 6 }, (_, i) => renderPoint(11 - i, false))}
+                            <Bar
+                                bar={effectiveState.bar}
+                                currentPlayer={effectiveState.currentPlayer}
+                                possibleMoves={effectiveState.possibleMoves}
+                                gamePhase={effectiveState.gamePhase}
+                                handleBarDragStart={handleBarDragStart}
+                                handleDragEnd={handleDragEnd}
+                                side="bottom"
+                            />
+                            {Array.from({ length: 6 }, (_, i) => renderPoint(5 - i, false))}
+                            {renderHome('white')}
+                        </div>
+
+                        {/* Bottom Labels (Points 12-1) */}
+                        <div className="flex gap-1 mt-1 items-start">
+                            {Array.from({ length: 6 }, (_, i) => (
+                                <div key={`label-bot-${11 - i}`} className="w-12 text-center text-black font-bold text-xs">{12 - i}</div>
+                            ))}
+                            <div className="w-4 mx-1" /> {/* Bar placeholder */}
+                            {Array.from({ length: 6 }, (_, i) => (
+                                <div key={`label-bot-${5 - i}`} className="w-12 text-center text-black font-bold text-xs">{6 - i}</div>
+                            ))}
+                            <div className="w-16" /> {/* Home placeholder */}
+                        </div>
+                    </div>
+
+                    {/* White Bar (bottom, below board) */}
+                    <div className="flex w-full justify-center mt-2">
+                        <div className="w-[384px] flex justify-end">
+                            {/* left padding for alignment */}
+                        </div>
+                        {/* Bar checkers are rendered only by the <Bar /> component above */}
+                        <div className="w-[128px]" /> {/* right padding for alignment */}
+                    </div>
+                    </>
                 )}
-
-                <h1 className="text-3xl font-bold mb-8 text-amber-900">Backgammon</h1>
-
-                {/* Game Info */}
-                <div className="mb-4 text-center">
-                    <div className="text-xl font-bold text-amber-800 mb-2">
-                        Current Player: <span className="text-2xl">{gameState.currentPlayer.toUpperCase()}</span>
-                    </div>
-                    <Dice dice={effectiveState.dice} usedDice={effectiveState.usedDice} />
-                    {effectiveState.dice && effectiveState.possibleMoves.length === 0 && effectiveState.usedDice.some(u => !u) && (
-                        <div className="text-red-600 font-bold mt-2">No moves available!</div>
-                    )}
-                </div>
-
-                {/* Controls */}
-                <Controls
-                    onUndo={handleUndo}
-                    onConfirm={handleConfirmMoves}
-                    onRollDice={rollDice}
-                    onNewGame={handleNewGame}
-                    canUndo={!!turnStartState && JSON.stringify(effectiveState) !== JSON.stringify(turnStartState)}
-                    canConfirm={!!(pendingGameState && JSON.stringify(effectiveState) !== JSON.stringify(turnStartState) && effectiveState.usedDice.every(u => u))}
-                    canRoll={!effectiveState.dice}
-                    showNewGame={!!winner}
-                />
-
-                {/* Black Bar (top, above board) */}
-                <div className="flex w-full justify-center mb-2">
-                    <div className="w-[384px] flex justify-end">
-                        {/* left padding for alignment */}
-                    </div>
-                    {gameState.bar.black > 0 && (
-                        <div className="flex gap-1">
-                            {Array.from({ length: gameState.bar.black }, (_, i) => (
-                                <div
-                                    key={`bar-black-${i}`}
-                                    draggable={gameState.currentPlayer === 'black' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing'}
-                                    onDragStart={e => gameState.currentPlayer === 'black' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing' ? handleBarDragStart(e, 'black') : e.preventDefault()}
-                                    onDragEnd={handleDragEnd}
-                                    className={`w-8 h-8 rounded-full border-2 bg-gray-800 border-white select-none transition-transform ${gameState.currentPlayer === 'black' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing' ? 'cursor-move hover:scale-110' : ''}`}
-                                    style={{ userSelect: 'none', margin: '2px 0' }}
-                                />
-                            ))}
-                        </div>
-                    )}
-                    <div className="w-[128px]" /> {/* right padding for alignment */}
-                </div>
-
-                {/* Board */}
-                <div className="border-4 border-amber-900 bg-amber-200 p-4 shadow-2xl">
-                    {/* Top Labels (Points 13-24) */}
-                    <div className="flex gap-1 mb-1 items-end">
-                        {Array.from({ length: 6 }, (_, i) => (
-                            <div key={`label-top-${12 + i}`} className="w-12 text-center text-black font-bold text-xs">{13 + i}</div>
-                        ))}
-                        <div className="w-4 mx-1" /> {/* Bar placeholder */}
-                        {Array.from({ length: 6 }, (_, i) => (
-                            <div key={`label-top-${18 + i}`} className="w-12 text-center text-black font-bold text-xs">{19 + i}</div>
-                        ))}
-                        <div className="w-16" /> {/* Home placeholder */}
-                    </div>
-
-                    {/* Top Row (Points 13-24) */}
-                    <div className="flex gap-1 mb-2 items-end">
-                        {Array.from({ length: 6 }, (_, i) => renderPoint(12 + i, true))}
-                        <Bar
-                            bar={effectiveState.bar}
-                            currentPlayer={effectiveState.currentPlayer}
-                            possibleMoves={effectiveState.possibleMoves}
-                            gamePhase={effectiveState.gamePhase}
-                            handleBarDragStart={handleBarDragStart}
-                            handleDragEnd={handleDragEnd}
-                        />
-                        {Array.from({ length: 6 }, (_, i) => renderPoint(18 + i, true))}
-                        {renderHome('black')}
-                    </div>
-
-                    {/* Bottom Row (Points 12-1) */}
-                    <div className="flex gap-1 items-start">
-                        {Array.from({ length: 6 }, (_, i) => renderPoint(11 - i, false))}
-                        <Bar
-                            bar={effectiveState.bar}
-                            currentPlayer={effectiveState.currentPlayer}
-                            possibleMoves={effectiveState.possibleMoves}
-                            gamePhase={effectiveState.gamePhase}
-                            handleBarDragStart={handleBarDragStart}
-                            handleDragEnd={handleDragEnd}
-                        />
-                        {Array.from({ length: 6 }, (_, i) => renderPoint(5 - i, false))}
-                        {renderHome('white')}
-                    </div>
-
-                    {/* Bottom Labels (Points 12-1) */}
-                    <div className="flex gap-1 mt-1 items-start">
-                        {Array.from({ length: 6 }, (_, i) => (
-                            <div key={`label-bot-${11 - i}`} className="w-12 text-center text-black font-bold text-xs">{12 - i}</div>
-                        ))}
-                        <div className="w-4 mx-1" /> {/* Bar placeholder */}
-                        {Array.from({ length: 6 }, (_, i) => (
-                            <div key={`label-bot-${5 - i}`} className="w-12 text-center text-black font-bold text-xs">{6 - i}</div>
-                        ))}
-                        <div className="w-16" /> {/* Home placeholder */}
-                    </div>
-                </div>
-
-                {/* White Bar (bottom, below board) */}
-                <div className="flex w-full justify-center mt-2">
-                    <div className="w-[384px] flex justify-end">
-                        {/* left padding for alignment */}
-                    </div>
-                    {gameState.bar.white > 0 && (
-                        <div className="flex gap-1">
-                            {Array.from({ length: gameState.bar.white }, (_, i) => (
-                                <div
-                                    key={`bar-white-${i}`}
-                                    draggable={gameState.currentPlayer === 'white' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing'}
-                                    onDragStart={e => gameState.currentPlayer === 'white' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing' ? handleBarDragStart(e, 'white') : e.preventDefault()}
-                                    onDragEnd={handleDragEnd}
-                                    className={`w-4 h-4 rounded-full border-2 bg-white border-gray-800 select-none transition-transform ${gameState.currentPlayer === 'white' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing' ? 'cursor-move hover:scale-110' : ''}`}
-                                    style={{ userSelect: 'none', margin: '2px 0' }}
-                                />
-                            ))}
-                        </div>
-                    )}
-                    <div className="w-[128px]" /> {/* right padding for alignment */}
-                </div>
-                </>
-            )}
+            </div>
         </div>
     );
 };
