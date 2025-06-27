@@ -450,9 +450,7 @@ const BackgammonBoard: React.FC = () => {
     const handleDrop = (e: React.DragEvent, toPoint: number) => {
         e.preventDefault();
         setDragOverPoint(null);
-
         let dragData = draggedPiece;
-
         if (!dragData) {
             try {
                 const dataString = e.dataTransfer.getData('application/json');
@@ -463,7 +461,6 @@ const BackgammonBoard: React.FC = () => {
                 console.error('Failed to parse drag data:', err);
             }
         }
-
         if (!dragData) {
             setDraggedPiece(null);
             setSelectedPoint(null);
@@ -472,7 +469,8 @@ const BackgammonBoard: React.FC = () => {
             setDraggingCheckerIndex(null);
             return;
         }
-
+        // Prevent any moves if all dice are used
+        if (!effectiveState.dice || effectiveState.usedDice.every(u => u)) return;
         // Find available dice values for this move
         const availableDice = effectiveState.dice?.filter((_, index) => !effectiveState.usedDice[index]) || [];
 
@@ -507,9 +505,7 @@ const BackgammonBoard: React.FC = () => {
     const handleHomeDrop = (e: React.DragEvent, player: Player) => {
         e.preventDefault();
         setDragOverPoint(null);
-
         let dragData = draggedPiece;
-
         if (!dragData) {
             try {
                 const dataString = e.dataTransfer.getData('application/json');
@@ -520,7 +516,6 @@ const BackgammonBoard: React.FC = () => {
                 console.error('Failed to parse drag data:', err);
             }
         }
-
         if (!dragData || dragData.player !== player) {
             setDraggedPiece(null);
             setSelectedPoint(null);
@@ -529,7 +524,8 @@ const BackgammonBoard: React.FC = () => {
             setDraggingCheckerIndex(null);
             return;
         }
-
+        // Prevent any moves if all dice are used
+        if (!effectiveState.dice || effectiveState.usedDice.every(u => u)) return;
         // Find available dice values for bearing off
         const availableDice = effectiveState.dice?.filter((_, index) => !effectiveState.usedDice[index]) || [];
 
@@ -558,54 +554,10 @@ const BackgammonBoard: React.FC = () => {
         setDraggingCheckerIndex(null);
     };
 
-    // In handlePointClick, use effectiveState
-    const handlePointClick = (pointIndex: number) => {
-        // Prevent any moves if all dice are used
-        if (!effectiveState.dice || effectiveState.usedDice.every(u => u)) return;
-        if (effectiveState.gamePhase !== 'playing' || !effectiveState.dice) return;
-        const pieces = effectiveState.board[pointIndex];
-        const isCurrentPlayerPiece = (effectiveState.currentPlayer === 'white' && pieces > 0) ||
-            (effectiveState.currentPlayer === 'black' && pieces < 0);
-        // If clicking on current player's piece, select it
-        if (isCurrentPlayerPiece) {
-            // Find all possible moves for this checker
-            const movesForThisChecker = effectiveState.possibleMoves.filter(move => move.from === pointIndex);
-            if (movesForThisChecker.length === 1) {
-                // Only one move, make it automatically
-                const move = movesForThisChecker[0];
-                makeMove(move.from, move.to, move.dice);
-                return;
-            } else if (movesForThisChecker.length > 1) {
-                // Auto-select the move that uses the largest die (farthest move)
-                const move = movesForThisChecker.reduce((a, b) => (a.dice > b.dice ? a : b));
-                makeMove(move.from, move.to, move.dice);
-                return;
-            }
-            setSelectedPoint(pointIndex);
-            return;
-        }
-        // If we have a selected point, try to make a move
-        if (selectedPoint !== null) {
-            const possibleMove = effectiveState.possibleMoves.find(move =>
-                move.from === selectedPoint && move.to === pointIndex
-            );
-            if (possibleMove) {
-                makeMove(selectedPoint, pointIndex, possibleMove.dice);
-            } else {
-                setSelectedPoint(null);
-            }
-        }
-    };
-
-    // In handleBarClick, use effectiveState
-    const handleBarClick = () => {
-        if (effectiveState.bar[effectiveState.currentPlayer] > 0) {
-            setSelectedPoint(-1);
-        }
-    };
-
     // In handleBearOff, use effectiveState
     const handleBearOff = () => {
+        // Prevent any moves if all dice are used
+        if (!effectiveState.dice || effectiveState.usedDice.every(u => u)) return;
         if (selectedPoint !== null && selectedPoint >= 0) {
             const possibleMove = effectiveState.possibleMoves.find(move =>
                 move.from === selectedPoint && move.to === -2
@@ -624,8 +576,9 @@ const BackgammonBoard: React.FC = () => {
 
         // Only highlight valid drop targets when dragging from the bar
         if (draggedPiece && draggedPiece.fromPoint === -1) {
+            // Only highlight if move uses an unused die
             const canMoveTo = effectiveState.possibleMoves.some(move =>
-                move.from === -1 && move.to === pointIndex
+                move.from === -1 && move.to === pointIndex && !effectiveState.usedDice[effectiveState.dice?.indexOf(move.dice) ?? -1]
             );
             if (canMoveTo) return 'ring-2 ring-green-400 bg-green-100';
             return '';
@@ -633,8 +586,9 @@ const BackgammonBoard: React.FC = () => {
 
         if (selectedPoint !== null || draggedPiece) {
             const fromPoint = draggedPiece ? draggedPiece.fromPoint : selectedPoint;
+            // Only highlight if move uses an unused die
             const canMoveTo = effectiveState.possibleMoves.some(move =>
-                move.from === fromPoint && move.to === pointIndex
+                move.from === fromPoint && move.to === pointIndex && !effectiveState.usedDice[effectiveState.dice?.indexOf(move.dice) ?? -1]
             );
             if (canMoveTo) return 'ring-2 ring-green-400 bg-green-100';
         }
@@ -847,6 +801,24 @@ const BackgammonBoard: React.FC = () => {
         setDraggingCheckerIndex(null);
     };
 
+    // In handlePointClick, add strict dice check at the top
+    const handlePointClick = (pointIndex: number) => {
+        // Prevent any moves if all dice are used
+        if (!effectiveState.dice || effectiveState.usedDice.every(u => u)) return;
+
+        const hasValidMoves = effectiveState.possibleMoves.some(move => move.from === pointIndex);
+        if (!hasValidMoves) return;
+
+        // Deselect if already selected
+        if (selectedPoint === pointIndex) {
+            setSelectedPoint(null);
+            return;
+        }
+
+        setSelectedPoint(pointIndex);
+        setInvalidDropFeedback(null);
+    };
+
     return (
         <div className="flex flex-col items-center p-8 bg-amber-100 min-h-screen">
             {winner ? (
@@ -890,13 +862,13 @@ const BackgammonBoard: React.FC = () => {
                         Current Player: <span className="text-2xl">{gameState.currentPlayer.toUpperCase()}</span>
                     </div>
 
-                    {gameState.dice && (
+                    {effectiveState.dice && (
                         <div className="flex items-center justify-center gap-4 mt-4">
                             <div className="flex gap-2">
-                                {gameState.dice.map((die, index) => (
+                                {effectiveState.dice.map((die, index) => (
                                     <div
                                         key={index}
-                                        className={`w-12 h-12 border-2 border-gray-800 rounded-lg flex items-center justify-center text-2xl font-bold shadow-lg transition-all ${gameState.usedDice[index] ? 'bg-gray-400 text-gray-600 scale-90' : 'bg-white text-black'
+                                        className={`w-12 h-12 border-2 border-gray-800 rounded-lg flex items-center justify-center text-2xl font-bold shadow-lg transition-all ${effectiveState.usedDice[index] ? 'bg-gray-400 text-gray-600 scale-90' : 'bg-white text-black'
                                             }`}
                                     >
                                         {die}
