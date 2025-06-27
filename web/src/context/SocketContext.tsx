@@ -16,10 +16,11 @@ export type GameState = {
 
 interface SocketContextType {
   gameState: GameState | null;
-  sendMove: (newState: GameState) => void;
+  sendMove: (move: { from: number; to: number; dice: number }) => void;
   resetGame: () => void;
   joinRoom: (roomId: string) => void;
   connected: boolean;
+  playerColor: 'white' | 'black' | null; // Add playerColor to context
 }
 
 const SocketContext = createContext<SocketContextType | undefined>(undefined);
@@ -27,6 +28,7 @@ const SocketContext = createContext<SocketContextType | undefined>(undefined);
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [connected, setConnected] = useState(false);
+  const [playerColor, setPlayerColor] = useState<'white' | 'black' | null>(null);
   const socketRef = useRef<any>(null);
   const roomRef = useRef<string>('default');
 
@@ -38,10 +40,14 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     socket.on('gameState', (state: GameState) => {
       setGameState(state);
     });
+    socket.on('playerAssignment', ({ color }: { color: 'white' | 'black' }) => {
+      setPlayerColor(color);
+    });
     return () => {
       socket.off('connect');
       socket.off('disconnect');
       socket.off('gameState');
+      socket.off('playerAssignment');
     };
   }, []);
 
@@ -52,9 +58,10 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  const sendMove = (newState: GameState) => {
+  // Accepts a move object, not a full GameState
+  const sendMove = (move: { from: number; to: number; dice: number }) => {
     if (socketRef.current) {
-      socketRef.current.emit('makeMove', { roomId: roomRef.current, newState });
+      socketRef.current.emit('makeMove', { roomId: roomRef.current, move });
     }
   };
 
@@ -65,7 +72,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   return (
-    <SocketContext.Provider value={{ gameState, sendMove, resetGame, joinRoom, connected }}>
+    <SocketContext.Provider value={{ gameState, sendMove, resetGame, joinRoom, connected, playerColor }}>
       {children}
     </SocketContext.Provider>
   );
