@@ -555,30 +555,32 @@ const BackgammonBoard: React.FC = () => {
 
         for (let i = 0; i < actualVisible; i++) {
             const isTopPiece = i === actualVisible - 1;
-            // Hide the checker if it's being dragged
-            if (canDrag && isTopPiece && draggingPointIndex === pointIndex) {
-                pieceElements.push(
-                    <div key={i} style={{ width: '2rem', height: '2rem', marginTop: i === 0 ? '0' : '-4px', visibility: 'hidden' }} />
-                );
-            } else {
-                pieceElements.push(
-                    <div
-                        key={i}
-                        draggable={canDrag && isTopPiece} // Only top piece is draggable
-                        onDragStart={(e) => canDrag && isTopPiece ? handleDragStart(e, pointIndex) : e.preventDefault()}
-                        onDragEnd={handleDragEnd}
-                        className={`w-8 h-8 rounded-full border-2 ${player === 'white'
-                            ? 'bg-white border-gray-800'
-                            : 'bg-gray-800 border-white'
-                            } select-none transition-transform ${canDrag && isTopPiece ? 'cursor-move hover:scale-110 z-10' : 'cursor-pointer'
-                            }`}
-                        style={{
-                            userSelect: 'none',
-                            marginTop: i === 0 ? '0' : '-4px'
-                        }}
-                    />
-                );
-            }
+            // All checkers are visually draggable
+            const isBeingDragged = canDrag && draggingPointIndex === pointIndex && isTopPiece;
+            pieceElements.push(
+                <div
+                    key={i}
+                    draggable={canDrag}
+                    onDragStart={(e) => {
+                        if (!isTopPiece) {
+                            // Only allow dragging the top checker
+                            e.preventDefault();
+                            setInvalidDropFeedback('Only the top checker can be moved');
+                            return;
+                        }
+                        handleDragStart(e, pointIndex);
+                    }}
+                    onDragEnd={handleDragEnd}
+                    className={`w-8 h-8 rounded-full border-2 ${player === 'white'
+                        ? 'bg-white border-gray-800'
+                        : 'bg-gray-800 border-white'
+                        } select-none transition-transform ${canDrag ? 'cursor-move hover:scale-110 z-10' : 'cursor-pointer'} ${isBeingDragged ? 'invisible' : ''}`}
+                    style={{
+                        userSelect: 'none',
+                        marginTop: i === 0 ? '0' : '-4px'
+                    }}
+                />
+            );
         }
 
         // Add overflow indicator if more than 5 pieces
