@@ -129,6 +129,7 @@ io.on('connection', (socket) => {
       bar: newBar,
       home: newHome,
       usedDice: newUsedDice,
+      dice: state.dice, // Ensure dice is always present until turn is over
     };
     if (allUsed) {
       const nextPlayer = player === 'white' ? 'black' : 'white';
@@ -148,7 +149,16 @@ io.on('connection', (socket) => {
   });
 
   socket.on('reset', (roomId) => {
-    games[roomId] = getInitialGameState();
+    // Roll dice and set to playing phase immediately
+    const dice1 = Math.floor(Math.random() * 6) + 1;
+    const dice2 = Math.floor(Math.random() * 6) + 1;
+    const diceArray = dice1 === dice2 ? [dice1, dice1, dice1, dice1] : [dice1, dice2];
+    games[roomId] = {
+      ...getInitialGameState(),
+      dice: diceArray,
+      usedDice: new Array(diceArray.length).fill(false),
+      gamePhase: 'playing',
+    };
     io.to(roomId).emit('gameState', games[roomId]);
   });
 });

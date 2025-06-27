@@ -59,9 +59,6 @@ const BackgammonBoard: React.FC = () => {
     const [invalidDropFeedback, setInvalidDropFeedback] = useState<string | null>(null);
     const [draggingPointIndex, setDraggingPointIndex] = useState<number | null>(null);
     const [draggingCheckerIndex, setDraggingCheckerIndex] = useState<number | null>(null);
-    // Add pending state for moves
-    const [pendingGameState, setPendingGameState] = useState<GameState | null>(null);
-    const [turnStartState, setTurnStartState] = useState<GameState | null>(null);
     // Track initial checker counts for win detection
     const [initialWhiteCheckers, setInitialWhiteCheckers] = useState(() => {
         return initialGameState.board.reduce((sum, n) => sum + (n > 0 ? n : 0), 0) + initialGameState.bar.white + initialGameState.home.white;
@@ -81,7 +78,7 @@ const BackgammonBoard: React.FC = () => {
     }, [joinRoom]);
 
     // Use remoteGameState if available
-    const effectiveState = remoteGameState || pendingGameState || gameState;
+    const effectiveState = remoteGameState || gameState;
 
     // --- Handler and helper function declarations ---
     // Memoize canBearOff to avoid unnecessary recalculations
@@ -201,25 +198,6 @@ const BackgammonBoard: React.FC = () => {
         return moves;
     }, [canBearOff]);
 
-    // On dice roll, set up pending state and turn start state
-    const rollDice = () => {
-        const dice1 = Math.floor(Math.random() * 6) + 1;
-        const dice2 = Math.floor(Math.random() * 6) + 1;
-        const diceArray = dice1 === dice2 ? [dice1, dice1, dice1, dice1] : [dice1, dice2];
-        setGameState(prev => {
-            const newState: GameState = {
-                ...prev,
-                dice: diceArray,
-                usedDice: new Array(diceArray.length).fill(false),
-                gamePhase: 'playing',
-                // Remove possibleMoves: [] here to let useEffect handle it
-            };
-            setPendingGameState(newState);
-            setTurnStartState(newState);
-            return newState;
-        });
-    };
-
     // Update isValidMove to use effectiveState
     const isValidMove = (from: number, to: number, dice: number): boolean => {
         return effectiveState.possibleMoves.some(move =>
@@ -230,8 +208,6 @@ const BackgammonBoard: React.FC = () => {
     // Add a helper to reset the game and initial checker counts
     const resetGame = (newInitialState: GameState) => {
         setGameState(newInitialState);
-        setPendingGameState(null);
-        setTurnStartState(null);
         setInitialWhiteCheckers(
             newInitialState.board.reduce((sum, n) => sum + (n > 0 ? n : 0), 0) + newInitialState.bar.white + newInitialState.home.white
         );
@@ -250,32 +226,37 @@ const BackgammonBoard: React.FC = () => {
 
     // Automatically roll dice at the start of the first turn only
     useEffect(() => {
-        const state = pendingGameState || gameState;
+        const state = gameState;
         // Only roll dice if the game is in setup, no dice, no winner, and it's the very first turn
         if (
             state.gamePhase === 'setup' &&
             !state.dice &&
-            !winner &&
-            !turnStartState // Only at very first game load
+            !winner
         ) {
-            rollDice();
+            // Simulate a dice roll
+            const dice1 = Math.floor(Math.random() * 6) + 1;
+            const dice2 = Math.floor(Math.random() * 6) + 1;
+            const diceArray = dice1 === dice2 ? [dice1, dice1, dice1, dice1] : [dice1, dice2];
+            // Update game state with rolled dice
+            setGameState(prev => ({
+                ...prev,
+                dice: diceArray,
+                usedDice: new Array(diceArray.length).fill(false),
+                gamePhase: 'playing',
+            }));
         }
         // eslint-disable-next-line
     }, [gameState.currentPlayer, gameState.gamePhase, winner]);
 
     // Calculate possible moves on game state change
     useEffect(() => {
-        const state = pendingGameState || gameState;
+        const state = gameState;
         const newMoves = calculatePossibleMoves(state);
         if (JSON.stringify(state.possibleMoves) !== JSON.stringify(newMoves)) {
-            if (pendingGameState) {
-                setPendingGameState(prev => prev ? { ...prev, possibleMoves: newMoves } : null);
-            } else {
-                setGameState(prev => ({ ...prev, possibleMoves: newMoves }));
-            }
+            setGameState(prev => ({ ...prev, possibleMoves: newMoves }));
         }
         // Do not update state in a way that triggers this effect again unless necessary
-    }, [pendingGameState, gameState, calculatePossibleMoves]);
+    }, [gameState, calculatePossibleMoves]);
 
     // Handler for making a move
     const makeMove = (from: number, to: number, dice: number, checkerIndex: number | null = null) => {
@@ -702,8 +683,8 @@ const BackgammonBoard: React.FC = () => {
                 onUndo={handleUndo}
                 onConfirm={handleConfirmMoves}
                 onNewGame={handleNewGame}
-                canUndo={!winner && !!pendingGameState && JSON.stringify(effectiveState) !== JSON.stringify(turnStartState)}
-                canConfirm={!winner && !!(pendingGameState && JSON.stringify(effectiveState) !== JSON.stringify(turnStartState) && effectiveState.usedDice.every(u => u))}
+                canUndo={false}
+                canConfirm={false}
                 showNewGame={!!winner}
             />
 
