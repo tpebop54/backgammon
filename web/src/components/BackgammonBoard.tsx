@@ -179,7 +179,9 @@ const BackgammonBoard: React.FC = () => {
     };
 
     const makeMove = (from: number, to: number, dice: number) => {
-        if (!isValidMove(from, to, dice)) return;
+        if (!isValidMove(from, to, dice)) {
+            return;
+        }
 
         setGameState(prev => {
             const newBoard = [...prev.board];
@@ -294,8 +296,12 @@ const BackgammonBoard: React.FC = () => {
             return;
         }
 
-        setDraggedPiece({ fromPoint: pointIndex, player });
-        setSelectedPoint(pointIndex);
+        // Delay state update to avoid drag cancelation due to re-render
+        setTimeout(() => {
+            setDraggedPiece({ fromPoint: pointIndex, player });
+            setSelectedPoint(pointIndex);
+        }, 0);
+
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('application/json', JSON.stringify({ fromPoint: pointIndex, player }));
 
