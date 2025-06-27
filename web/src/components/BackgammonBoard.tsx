@@ -94,7 +94,8 @@ const BackgammonBoard: React.FC = () => {
         const canBearOffNow = canBearOff(state.currentPlayer, state.board);
         const hasBarPieces = state.bar[state.currentPlayer] > 0;
         if (hasBarPieces) {
-            availableDice.forEach(dice => {
+            for (let d = 0; d < availableDice.length; d++) {
+                const dice = availableDice[d];
                 let targetPoint: number;
                 if (state.currentPlayer === 'white') {
                     targetPoint = 24 - dice;
@@ -109,20 +110,20 @@ const BackgammonBoard: React.FC = () => {
                         moves.push({ from: -1, to: targetPoint, dice });
                     }
                 }
-            });
+            }
         } else {
             for (let from = 0; from < 24; from++) {
                 const pieces = state.board[from];
                 const isCurrentPlayerPiece = (state.currentPlayer === 'white' && pieces > 0) ||
                     (state.currentPlayer === 'black' && pieces < 0);
                 if (!isCurrentPlayerPiece) continue;
-                availableDice.forEach(dice => {
+                for (let d = 0; d < availableDice.length; d++) {
+                    const dice = availableDice[d];
                     let to = from + (dice * direction);
                     if (canBearOffNow && ((state.currentPlayer === 'white' && to < 0) ||
                         (state.currentPlayer === 'black' && to >= 24))) {
                         let higherPointExists = false;
                         if (state.currentPlayer === 'white') {
-                            // For white, home is 0-5. Check for checkers on higher points (higher indices in 0-5)
                             for (let i = from + 1; i <= 5; i++) {
                                 if (state.board[i] > 0) {
                                     higherPointExists = true;
@@ -147,7 +148,7 @@ const BackgammonBoard: React.FC = () => {
                                 moves.push({ from, to: -2, dice });
                             }
                         }
-                        return;
+                        continue;
                     }
                     if (to >= 0 && to < 24) {
                         const targetPieces = state.board[to];
@@ -157,7 +158,7 @@ const BackgammonBoard: React.FC = () => {
                             moves.push({ from, to, dice });
                         }
                     }
-                });
+                }
             }
         }
         return moves;
