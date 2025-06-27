@@ -663,6 +663,20 @@ const BackgammonBoard: React.FC = () => {
         );
     };
 
+    // Helper to calculate pip count for a player
+    const getPipCount = (player: Player) => {
+        let pipSum = 0;
+        for (let i = 0; i < 24; i++) {
+            const n = effectiveState.board[i];
+            if (player === 'white' && n > 0) pipSum += n * (i + 1);
+            if (player === 'black' && n < 0) pipSum += -n * (24 - i);
+        }
+        // Add bar checkers: white bar = 25, black bar = 25
+        if (player === 'white') pipSum += effectiveState.bar.white * 25;
+        if (player === 'black') pipSum += effectiveState.bar.black * 25;
+        return pipSum;
+    };
+
     // Render the home area for a player
     const renderHome = (player: Player) => {
         const isDraggingOwnChecker = draggedPiece && draggedPiece.player === player;
@@ -672,6 +686,7 @@ const BackgammonBoard: React.FC = () => {
             <Home
                 player={player}
                 homeCount={gameState.home[player]}
+                pipCount={getPipCount(player)}
                 canBearOffNow={canBearOffNow}
                 isDraggingOwnChecker={!!isDraggingOwnChecker}
                 hasValidBearOffMoves={hasValidBearOffMoves}

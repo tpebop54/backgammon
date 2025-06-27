@@ -1,0 +1,1 @@
+// This file is intentionally left blank. The previous Checker demo has been removed as part of codebase cleanup.
