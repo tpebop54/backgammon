@@ -676,12 +676,7 @@ const BackgammonBoard: React.FC = () => {
                 <span className="text-xs font-semibold text-gray-700 mr-4">{connected ? 'Connected' : 'Disconnected'}</span>
                 {/* Turn and dice info */}
                 <span className="text-xs font-semibold text-gray-700">
-                    Turn: {effectiveState.currentPlayer}
-                    {effectiveState.dice && (
-                        <>
-                            {' | Dice: '}{effectiveState.dice.join(', ')}
-                        </>
-                    )}
+                    Turn: {effectiveState.currentPlayer} | Dice: {effectiveState.dice ? effectiveState.dice.join(', ') : '–'}
                 </span>
             </div>
 
