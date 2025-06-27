@@ -65,9 +65,11 @@ const initialGameState: GameState = {
 const BackgammonBoard: React.FC = () => {
     const [gameState, setGameState] = useState<GameState>(initialGameState);
     const [selectedPoint, setSelectedPoint] = useState<number | null>(null);
-    const [draggedPiece, setDraggedPiece] = useState<{ fromPoint: number; player: Player } | null>(null);
+    const [draggedPiece, setDraggedPiece] = useState<{ fromPoint: number; player: Player; checkerIndex: number } | null>(null);
     const [dragOverPoint, setDragOverPoint] = useState<number | null>(null);
     const [invalidDropFeedback, setInvalidDropFeedback] = useState<string | null>(null);
+    const [draggingPointIndex, setDraggingPointIndex] = useState<number | null>(null);
+    const [draggingCheckerIndex, setDraggingCheckerIndex] = useState<number | null>(null);
 
     // Helper function to check if a player can bear off
     const canBearOff = (player: Player, board: number[]): boolean => {
@@ -93,7 +95,7 @@ const BackgammonBoard: React.FC = () => {
         if (!state.dice || state.gamePhase !== 'playing') return moves;
 
         const availableDice = state.dice.filter((_, index) => !state.usedDice[index]);
-        const direction = state.currentPlayer === 'white' ? -1 : 1;
+        const direction = state.currentPlayer === 'white' ? 1 : -1;
         const canBearOffNow = canBearOff(state.currentPlayer, state.board);
 
         // Check if player has pieces on the bar that must be moved first
@@ -178,8 +180,10 @@ const BackgammonBoard: React.FC = () => {
         );
     };
 
-    const makeMove = (from: number, to: number, dice: number) => {
-        if (!isValidMove(from, to, dice)) return;
+    const makeMove = (from: number, to: number, dice: number, checkerIndex?: number) => {
+        if (!isValidMove(from, to, dice)) {
+            return;
+        }
 
         setGameState(prev => {
             const newBoard = [...prev.board];
@@ -187,6 +191,21 @@ const BackgammonBoard: React.FC = () => {
             const newHome = { ...prev.home };
             const diceIndex = prev.dice!.indexOf(dice);
             const newUsedDice = [...prev.usedDice];
+
+            // Remove checker from correct position in stack
+            if (checkerIndex !== undefined && from >= 0) {
+                const absCount = Math.abs(newBoard[from]);
+                if (absCount > 1) {
+                    // Remove one checker from the stack
+                    if (newBoard[from] > 0) {
+                        newBoard[from] -= 1;
+                    } else {
+                        newBoard[from] += 1;
+                    }
+                } else {
+                    newBoard[from] = 0;
+                }
+            }
 
             // Handle move from bar
             if (from === -1) {
@@ -279,9 +298,10 @@ const BackgammonBoard: React.FC = () => {
         }));
     };
 
-    const handleDragStart = (e: React.DragEvent, pointIndex: number) => {
+    const handleDragStart = (e: React.DragEvent, pointIndex: number, checkerIndex: number) => {
         const piece = gameState.board[pointIndex];
         const player = piece > 0 ? 'white' : 'black';
+        const absCount = Math.abs(piece);
 
         if (player !== gameState.currentPlayer) {
             e.preventDefault();
@@ -294,10 +314,22 @@ const BackgammonBoard: React.FC = () => {
             return;
         }
 
-        setDraggedPiece({ fromPoint: pointIndex, player });
-        setSelectedPoint(pointIndex);
+        setTimeout(() => {
+            setDraggedPiece({ fromPoint: pointIndex, player, checkerIndex });
+            setSelectedPoint(pointIndex);
+            setDraggingPointIndex(pointIndex);
+            setDraggingCheckerIndex(checkerIndex);
+        }, 0);
+
+        // Use a transparent drag image
+        const img = document.createElement('img');
+        img.src =
+            'data:image/svg+xml;base64,' +
+            btoa('<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"></svg>');
+        e.dataTransfer.setDragImage(img, 0, 0);
+
         e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('application/json', JSON.stringify({ fromPoint: pointIndex, player }));
+        e.dataTransfer.setData('application/json', JSON.stringify({ fromPoint: pointIndex, player, checkerIndex }));
 
         setInvalidDropFeedback(null);
     };
@@ -314,10 +346,10 @@ const BackgammonBoard: React.FC = () => {
             return;
         }
 
-        setDraggedPiece({ fromPoint: -1, player });
+        setDraggedPiece({ fromPoint: -1, player, checkerIndex: 0 });
         setSelectedPoint(-1);
         e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('application/json', JSON.stringify({ fromPoint: -1, player }));
+        e.dataTransfer.setData('application/json', JSON.stringify({ fromPoint: -1, player, checkerIndex: 0 }));
 
         setInvalidDropFeedback(null);
     };
@@ -344,7 +376,6 @@ const BackgammonBoard: React.FC = () => {
 
         let dragData = draggedPiece;
 
-        // Try to get drag data from the event if draggedPiece is null
         if (!dragData) {
             try {
                 const dataString = e.dataTransfer.getData('application/json');
@@ -378,9 +409,8 @@ const BackgammonBoard: React.FC = () => {
         }
 
         if (validMove) {
-            makeMove(dragData.fromPoint, toPoint, validMove.dice);
+            makeMove(dragData.fromPoint, toPoint, validMove.dice, dragData.checkerIndex);
         } else {
-            // Invalid move feedback
             const fromName = dragData.fromPoint === -1 ? 'bar' : `point ${dragData.fromPoint + 1}`;
             const toName = toPoint === -2 ? 'home' : `point ${toPoint + 1}`;
             setInvalidDropFeedback(`Invalid move from ${fromName} to ${toName}`);
@@ -441,6 +471,8 @@ const BackgammonBoard: React.FC = () => {
         setDraggedPiece(null);
         setSelectedPoint(null);
         setDragOverPoint(null);
+        setDraggingPointIndex(null);
+        setDraggingCheckerIndex(null);
     };
 
     const handlePointClick = (pointIndex: number) => {
@@ -539,20 +571,21 @@ const BackgammonBoard: React.FC = () => {
 
         for (let i = 0; i < actualVisible; i++) {
             const isTopPiece = i === actualVisible - 1;
+            // All checkers are visually draggable
+            const isBeingDragged = canDrag && draggingPointIndex === pointIndex && draggingCheckerIndex === i;
             pieceElements.push(
                 <div
                     key={i}
-                    draggable={canDrag && isTopPiece} // Only top piece is draggable
-                    onDragStart={(e) => canDrag && isTopPiece ? handleDragStart(e, pointIndex) : e.preventDefault()}
+                    draggable={canDrag}
+                    onDragStart={(e) => handleDragStart(e, pointIndex, i)}
                     onDragEnd={handleDragEnd}
                     className={`w-8 h-8 rounded-full border-2 ${player === 'white'
                         ? 'bg-white border-gray-800'
                         : 'bg-gray-800 border-white'
-                        } select-none transition-transform ${canDrag && isTopPiece ? 'cursor-move hover:scale-110 z-10' : 'cursor-pointer'
-                        }`}
+                        } select-none transition-transform ${canDrag ? 'cursor-move hover:scale-110 z-10' : 'cursor-pointer'} ${isBeingDragged ? 'invisible' : ''}`}
                     style={{
                         userSelect: 'none',
-                        marginTop: i === 0 ? '0' : '-4px' // Overlap pieces slightly
+                        marginTop: i === 0 ? '0' : '-4px'
                     }}
                 />
             );
@@ -564,7 +597,7 @@ const BackgammonBoard: React.FC = () => {
                 <div
                     key="overflow"
                     draggable={canDrag}
-                    onDragStart={(e) => canDrag ? handleDragStart(e, pointIndex) : e.preventDefault()}
+                    onDragStart={(e) => handleDragStart(e, pointIndex, actualVisible)}
                     onDragEnd={handleDragEnd}
                     className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold ${player === 'white'
                         ? 'bg-white border-gray-800 text-gray-800'
@@ -624,8 +657,7 @@ const BackgammonBoard: React.FC = () => {
                             draggable={canDragFromBar && gameState.currentPlayer === 'black'}
                             onDragStart={(e) => canDragFromBar && gameState.currentPlayer === 'black' ? handleBarDragStart(e, 'black') : e.preventDefault()}
                             onDragEnd={handleDragEnd}
-                            className={`w-8 h-8 rounded-full bg-gray-800 border-2 border-white select-none transition-transform ${canDragFromBar && gameState.currentPlayer === 'black' ? 'cursor-move hover:scale-110' : ''
-                                }`}
+                            className={`w-8 h-8 rounded-full bg-gray-800 border-2 border-white select-none transition-transform ${canDragFromBar && gameState.currentPlayer === 'black' ? 'cursor-move hover:scale-110' : ''}`}
                             style={{ userSelect: 'none' }}
                         />
                         {gameState.bar.black > 1 && (
@@ -639,8 +671,7 @@ const BackgammonBoard: React.FC = () => {
                             draggable={canDragFromBar && gameState.currentPlayer === 'white'}
                             onDragStart={(e) => canDragFromBar && gameState.currentPlayer === 'white' ? handleBarDragStart(e, 'white') : e.preventDefault()}
                             onDragEnd={handleDragEnd}
-                            className={`w-8 h-8 rounded-full bg-white border-2 border-gray-800 select-none transition-transform ${canDragFromBar && gameState.currentPlayer === 'white' ? 'cursor-move hover:scale-110' : ''
-                                }`}
+                            className={`w-8 h-8 rounded-full bg-white border-2 border-gray-800 select-none transition-transform ${canDragFromBar && gameState.currentPlayer === 'white' ? 'cursor-move hover:scale-110' : ''}`}
                             style={{ userSelect: 'none' }}
                         />
                         {gameState.bar.white > 1 && (
