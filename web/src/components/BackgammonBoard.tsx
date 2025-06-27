@@ -874,20 +874,7 @@ const BackgammonBoard: React.FC = () => {
                     <div className="w-[384px] flex justify-end">
                         {/* left padding for alignment */}
                     </div>
-                    {gameState.bar.black > 0 && (
-                        <div className="flex gap-1">
-                            {Array.from({ length: gameState.bar.black }, (_, i) => (
-                                <div
-                                    key={`bar-black-${i}`}
-                                    draggable={gameState.currentPlayer === 'black' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing'}
-                                    onDragStart={e => gameState.currentPlayer === 'black' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing' ? handleBarDragStart(e, 'black') : e.preventDefault()}
-                                    onDragEnd={handleDragEnd}
-                                    className={`w-8 h-8 rounded-full border-2 bg-gray-800 border-white select-none transition-transform ${gameState.currentPlayer === 'black' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing' ? 'cursor-move hover:scale-110' : ''}`}
-                                    style={{ userSelect: 'none', margin: '2px 0' }}
-                                />
-                            ))}
-                        </div>
-                    )}
+                    {/* Bar checkers are rendered only by the <Bar /> component below */}
                     <div className="w-[128px]" /> {/* right padding for alignment */}
                 </div>
 
@@ -953,20 +940,7 @@ const BackgammonBoard: React.FC = () => {
                     <div className="w-[384px] flex justify-end">
                         {/* left padding for alignment */}
                     </div>
-                    {gameState.bar.white > 0 && (
-                        <div className="flex gap-1">
-                            {Array.from({ length: gameState.bar.white }, (_, i) => (
-                                <div
-                                    key={`bar-white-${i}`}
-                                    draggable={gameState.currentPlayer === 'white' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing'}
-                                    onDragStart={e => gameState.currentPlayer === 'white' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing' ? handleBarDragStart(e, 'white') : e.preventDefault()}
-                                    onDragEnd={handleDragEnd}
-                                    className={`w-4 h-4 rounded-full border-2 bg-white border-gray-800 select-none transition-transform ${gameState.currentPlayer === 'white' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing' ? 'cursor-move hover:scale-110' : ''}`}
-                                    style={{ userSelect: 'none', margin: '2px 0' }}
-                                />
-                            ))}
-                        </div>
-                    )}
+                    {/* Bar checkers are rendered only by the <Bar /> component above */}
                     <div className="w-[128px]" /> {/* right padding for alignment */}
                 </div>
                 </>
