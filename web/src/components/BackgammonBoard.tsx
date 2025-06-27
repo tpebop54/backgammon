@@ -306,11 +306,9 @@ const BackgammonBoard: React.FC = () => {
             setDraggingCheckerIndex(checkerIndex);
         }, 0);
 
-        // Use a transparent drag image
+        // Use a transparent drag image to hide the browser's default drag image
         const img = document.createElement('img');
-        img.src =
-            'data:image/svg+xml;base64,' +
-            btoa('<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"></svg>');
+        img.src = 'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"></svg>');
         e.dataTransfer.setDragImage(img, 0, 0);
 
         e.dataTransfer.effectAllowed = 'move';
@@ -574,13 +572,14 @@ const BackgammonBoard: React.FC = () => {
                     className={`absolute left-1/2 -translate-x-1/2 w-8 h-8 rounded-full border-2 ${player === 'white'
                         ? 'bg-white border-gray-800'
                         : 'bg-gray-800 border-white'
-                        } select-none transition-transform ${canDrag ? 'cursor-move hover:scale-110 z-10' : 'cursor-pointer'} ${isBeingDragged ? 'invisible' : ''}`}
+                        } select-none transition-transform ${canDrag ? 'cursor-move hover:scale-110 z-10' : 'cursor-pointer'}`}
                     style={{
                         userSelect: 'none',
                         height: checkerSize,
                         width: checkerSize,
                         top: isTopRow ? pos : undefined,
-                        bottom: !isTopRow ? pos : undefined
+                        bottom: !isTopRow ? pos : undefined,
+                        visibility: isBeingDragged ? 'hidden' : 'visible',
                     }}
                 />
             );
@@ -751,8 +750,37 @@ if (winner) {
         setDraggingCheckerIndex(null);
     };
 
+    // Track mouse position for drag preview
+    const [dragMouse, setDragMouse] = useState<{ x: number; y: number } | null>(null);
+    useEffect(() => {
+        if (!draggedPiece) return;
+        const handle = (e: MouseEvent) => setDragMouse({ x: e.clientX, y: e.clientY });
+        window.addEventListener('dragover', handle);
+        return () => window.removeEventListener('dragover', handle);
+    }, [draggedPiece]);
+
     return (
         <div className="flex flex-col items-center p-8 bg-amber-100 min-h-screen">
+            {/* Drag Preview Checker */}
+            {draggedPiece && dragMouse && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        pointerEvents: 'none',
+                        left: dragMouse.x - 16, // Center 32x32 checker
+                        top: dragMouse.y - 16,
+                        zIndex: 10000,
+                        width: 32,
+                        height: 32,
+                    }}
+                >
+                    <div
+                        className={`w-8 h-8 rounded-full border-2 ${draggedPiece.player === 'white' ? 'bg-white border-gray-800' : 'bg-gray-800 border-white'}`}
+                        style={{ width: 32, height: 32 }}
+                    />
+                </div>
+            )}
+
             <h1 className="text-3xl font-bold mb-8 text-amber-900">Backgammon</h1>
 
             {/* Game Info */}
