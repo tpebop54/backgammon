@@ -279,155 +279,23 @@ const BackgammonBoard: React.FC = () => {
 
     // Handler for making a move
     const makeMove = (from: number, to: number, dice: number, checkerIndex: number | null = null) => {
-        const state = pendingGameState || gameState;
-        const newBoard = [...state.board];
-        const player = state.currentPlayer;
-        const direction = player === 'white' ? 1 : -1;
-        const opponent = player === 'white' ? 'black' : 'white';
-        // Always use the same newBar and newHome objects
-        const newBar = { ...state.bar };
-        const newHome = { ...state.home };
-
-        // Move checker on the board
-        if (from !== -1) {
-            newBoard[from] -= player === 'white' ? 1 : -1;
-        }
-        // Handle hitting opponent's blot (single checker)
-        if (to !== -2 && to !== -1) {
-            const dest = newBoard[to];
-            if ((player === 'white' && dest === -1) || (player === 'black' && dest === 1)) {
-                // Move opponent checker to bar
-                newBoard[to] = 0;
-                newBar[opponent] += 1;
-            }
-        }
-        // Place our checker (after possible hit)
-        if (to !== -2) {
-            newBoard[to] += player === 'white' ? 1 : -1;
-        }
-        // Update bar and home for our own checker
-        if (from === -1) {
-            newBar[player] -= 1;
-        } else if (to === -2) {
-            newHome[player] += 1;
-        }
-        // Update used dice
-        let diceIndex = -1;
-        if (state.dice) {
-            for (let i = 0; i < state.dice.length; i++) {
-                if (state.dice[i] === dice && !state.usedDice[i]) {
-                    diceIndex = i;
-                    break;
-                }
-            }
-        }
-        const newUsedDice = [...state.usedDice];
-        if (diceIndex !== -1) {
-            newUsedDice[diceIndex] = true;
-        }
-        // Check for win immediately after bearing off
-        const totalWhite = newHome.white;
-        const totalBlack = newHome.black;
-        const whiteOnBoard = newBoard.reduce((sum, n) => sum + (n > 0 ? n : 0), 0) + newBar.white;
-        const blackOnBoard = newBoard.reduce((sum, n) => sum + (n < 0 ? -n : 0), 0) + newBar.black;
-        if (totalWhite === initialWhiteCheckers && whiteOnBoard === 0) {
-            setWinner('WHITE');
-            setGameState({
-                ...state,
-                board: newBoard,
-                bar: newBar,
-                home: newHome,
-                usedDice: newUsedDice,
-                gamePhase: 'finished',
-            });
-            setPendingGameState(null);
-            setTurnStartState(null);
-            return;
-        }
-        if (totalBlack === initialBlackCheckers && blackOnBoard === 0) {
-            setWinner('BLACK');
-            setGameState({
-                ...state,
-                board: newBoard,
-                bar: newBar,
-                home: newHome,
-                usedDice: newUsedDice,
-                gamePhase: 'finished',
-            });
-            setPendingGameState(null);
-            setTurnStartState(null);
-            return;
-        }
-        const newState: GameState = {
-            ...state,
-            board: newBoard,
-            bar: newBar,
-            home: newHome,
-            usedDice: newUsedDice,
-            possibleMoves: calculatePossibleMoves({
-                ...state,
-                board: newBoard,
-                bar: newBar,
-                home: newHome,
-                usedDice: newUsedDice,
-            })
-        };
-        setPendingGameState(newState);
-        sendMove(newState); // Sync move to server
+        // Only send the move to the server, do not update local state
+        sendMove({ from, to, dice } as any); // 'as any' to bypass type error for move-only payload
+        setSelectedPoint(null);
+        setDraggedPiece(null);
+        setDragOverPoint(null);
+        setDraggingPointIndex(null);
+        setDraggingCheckerIndex(null);
     };
 
     // Undo handler
     const handleUndo = () => {
-        if (!turnStartState) return;
-        setPendingGameState(turnStartState);
-        setTurnStartState(turnStartState);
+        // No-op: undo is not supported in multiplayer mode
     };
 
     // Confirm moves handler
     const handleConfirmMoves = () => {
-        if (!pendingGameState) return;
-        // Switch player and roll dice for next turn immediately (no flicker)
-        const nextPlayer = pendingGameState.currentPlayer === 'white' ? 'black' : 'white';
-        // Calculate home and on-board for both players
-        const totalWhite = pendingGameState.home.white;
-        const totalBlack = pendingGameState.home.black;
-        const whiteOnBoard = pendingGameState.board.reduce((sum, n) => sum + (n > 0 ? n : 0), 0) + pendingGameState.bar.white;
-        const blackOnBoard = pendingGameState.board.reduce((sum, n) => sum + (n < 0 ? -n : 0), 0) + pendingGameState.bar.black;
-        if (totalWhite === initialWhiteCheckers && whiteOnBoard === 0) {
-            setWinner('WHITE');
-            setGameState({
-                ...pendingGameState,
-                gamePhase: 'finished',
-            });
-            setPendingGameState(null);
-            setTurnStartState(null);
-            return;
-        }
-        if (totalBlack === initialBlackCheckers && blackOnBoard === 0) {
-            setWinner('BLACK');
-            setGameState({
-                ...pendingGameState,
-                gamePhase: 'finished',
-            });
-            setPendingGameState(null);
-            setTurnStartState(null);
-            return;
-        }
-        // Roll dice for next player immediately
-        const dice1 = Math.floor(Math.random() * 6) + 1;
-        const dice2 = Math.floor(Math.random() * 6) + 1;
-        const diceArray = dice1 === dice2 ? [dice1, dice1, dice1, dice1] : [dice1, dice2];
-        const nextState: GameState = {
-            ...pendingGameState,
-            currentPlayer: nextPlayer as Player,
-            dice: diceArray,
-            usedDice: new Array(diceArray.length).fill(false),
-            gamePhase: 'playing',
-            possibleMoves: [] // will be recalculated by useEffect
-        };
-        setGameState(nextState);
-        setPendingGameState(null);
-        setTurnStartState(nextState);
+        // No-op: all state transitions are now handled by the server
     };
 
     // In handleDragStart, use effectiveState
