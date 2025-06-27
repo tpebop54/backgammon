@@ -6,6 +6,7 @@ interface DebugEvent {
     [key: string]: any;
 }
 
+// Add onContextMenu={onDebug} to make an element right clickable to open the debugger
 const onDebug = (evt: DebugEvent): void => {
     console.log(evt);
     debugger;
@@ -17,14 +18,14 @@ type GameState = {
     board: number[]; // 24 points, positive = white pieces, negative = black pieces
     bar: { white: number; black: number }; // pieces on the bar
     home: { white: number; black: number }; // pieces borne off
-    currentPlayer: Player;
-    dice: number[] | null;
+    currentPlayer: Player; // current player turn
+    dice: number[] | null; // current rolled dice, null if not rolled
     usedDice: boolean[]; // track which dice have been used
     gamePhase: 'setup' | 'playing' | 'finished';
     possibleMoves: Array<{ from: number; to: number; dice: number }>;
 };
 
-// Initial backgammon setup - corrected positioning
+// Initial checker locations
 const initialGameState: GameState = {
     board: [
         0,   // point 1 (black home board)
@@ -50,7 +51,7 @@ const initialGameState: GameState = {
         0,   // point 21
         0,   // point 22
         0,   // point 23
-        2    // point 24 (2 white pieces)
+        2,   // point 24 (2 white pieces)
     ],
     bar: { white: 0, black: 0 },
     home: { white: 0, black: 0 },
@@ -65,6 +66,7 @@ const BackgammonBoard: React.FC = () => {
     const [gameState, setGameState] = useState<GameState>(initialGameState);
     const [selectedPoint, setSelectedPoint] = useState<number | null>(null);
     const [draggedPiece, setDraggedPiece] = useState<{ fromPoint: number; player: Player } | null>(null);
+    const [dragOverPoint, setDragOverPoint] = useState<number | null>(null);
 
     // Helper function to check if a player can bear off
     const canBearOff = (player: Player, board: number[]): boolean => {
@@ -314,6 +316,7 @@ const BackgammonBoard: React.FC = () => {
 
     const handleDrop = (e: React.DragEvent, toPoint: number) => {
         e.preventDefault();
+        setDragOverPoint(null);
 
         if (!draggedPiece) return;
 
@@ -323,6 +326,9 @@ const BackgammonBoard: React.FC = () => {
 
         if (possibleMove) {
             makeMove(draggedPiece.fromPoint, toPoint, possibleMove.dice);
+        } else {
+            // Invalid move: "snap back" logic (handled by not changing state)
+            // You can also add visual feedback here if desired
         }
 
         setDraggedPiece(null);
@@ -331,6 +337,7 @@ const BackgammonBoard: React.FC = () => {
 
     const handleHomeDrop = (e: React.DragEvent, player: Player) => {
         e.preventDefault();
+        setDragOverPoint(null);
 
         if (!draggedPiece || draggedPiece.player !== player) return;
 
@@ -340,7 +347,7 @@ const BackgammonBoard: React.FC = () => {
 
         if (possibleMove) {
             makeMove(draggedPiece.fromPoint, -2, possibleMove.dice);
-        }
+        } // else drop is invalid; do nothing
 
         setDraggedPiece(null);
         setSelectedPoint(null);
@@ -646,7 +653,7 @@ const BackgammonBoard: React.FC = () => {
                     {renderHome('black')}
                 </div>
             </div>
-            
+
             {/* Instructions */}
             <div className="mt-6 p-4 bg-white rounded-lg shadow-lg max-w-2xl">
                 <h3 className="text-lg font-bold mb-2" onContextMenu={onDebug}>How to Play:</h3>
