@@ -118,12 +118,11 @@ const BackgammonBoard: React.FC = () => {
                 if (!isCurrentPlayerPiece) continue;
                 availableDice.forEach(dice => {
                     let to = from + (dice * direction);
-                    // --- Fix: For white, allow moves from higher to lower indices (e.g., from 5 to 0 with dice 5) ---
                     if (canBearOffNow && ((state.currentPlayer === 'white' && to < 0) ||
                         (state.currentPlayer === 'black' && to >= 24))) {
                         let higherPointExists = false;
                         if (state.currentPlayer === 'white') {
-                            // For white, check for checkers on higher points (indices 0-5 are home)
+                            // For white, home is 0-5. Check for checkers on higher points (higher indices in 0-5)
                             for (let i = from + 1; i <= 5; i++) {
                                 if (state.board[i] > 0) {
                                     higherPointExists = true;
@@ -131,11 +130,12 @@ const BackgammonBoard: React.FC = () => {
                                 }
                             }
                             const exact = (from + 1) === dice;
-                            if (exact || (!higherPointExists && (from + 1) < dice)) {
+                            // Only allow bearing off with higher die if no checkers on higher points
+                            if (exact || (!higherPointExists && dice > (from + 1))) {
                                 moves.push({ from, to: -2, dice });
                             }
                         } else {
-                            // For black, check for checkers on higher points (indices 18-23 are home)
+                            // For black, home is 18-23. Check for checkers on higher points (lower indices in 18-23)
                             for (let i = from - 1; i >= 18; i--) {
                                 if (state.board[i] < 0) {
                                     higherPointExists = true;
@@ -143,13 +143,12 @@ const BackgammonBoard: React.FC = () => {
                                 }
                             }
                             const exact = (24 - from) === dice;
-                            if (exact || (!higherPointExists && (24 - from) < dice)) {
+                            if (exact || (!higherPointExists && dice > (24 - from))) {
                                 moves.push({ from, to: -2, dice });
                             }
                         }
                         return;
                     }
-                    // --- Fix: For white, allow moves from 5 to 0, 5 to 1, etc. ---
                     if (to >= 0 && to < 24) {
                         const targetPieces = state.board[to];
                         const isBlocked = (state.currentPlayer === 'white' && targetPieces < -1) ||
