@@ -72,7 +72,7 @@ const BackgammonBoard: React.FC = () => {
     const [dragMouse, setDragMouse] = useState<{ x: number; y: number } | null>(null);
 
     // Multiplayer: join room and sync state
-    const { gameState: remoteGameState, sendMove, resetGame: resetGameSocket, joinRoom, connected } = useSocketGame();
+    const { gameState: remoteGameState, sendMove, resetGame: resetGameSocket, joinRoom, connected, playerColor } = useSocketGame();
     useEffect(() => {
         joinRoom('default'); // For now, always join the default room
     }, [joinRoom]);
@@ -674,6 +674,13 @@ const BackgammonBoard: React.FC = () => {
             <div className="flex items-center mb-2">
                 <span className={`inline-block w-3 h-3 rounded-full mr-2 ${connected ? 'bg-green-500' : 'bg-red-500'}`}></span>
                 <span className="text-xs font-semibold text-gray-700 mr-4">{connected ? 'Connected' : 'Disconnected'}</span>
+                {/* Player indicator: show only the local player's color */}
+                {playerColor === 'white' && (
+                    <span className="inline-block w-4 h-4 rounded-full bg-white border border-gray-400 mr-3 align-middle" title="You are White"></span>
+                )}
+                {playerColor === 'black' && (
+                    <span className="inline-block w-4 h-4 rounded-full bg-black border border-gray-400 mr-3 align-middle" title="You are Black"></span>
+                )}
                 {/* Turn and dice info */}
                 <span className="text-xs font-semibold text-gray-700">
                     Turn: {effectiveState.currentPlayer} | Dice: {effectiveState.dice ? effectiveState.dice.join(', ') : '–'}

@@ -14,6 +14,9 @@ const io = new Server(server, {
 // In-memory game state for demo (roomId -> gameState)
 const games = {};
 
+// Track player assignments per room: { [roomId]: { white: socketId, black: socketId } }
+const playerAssignments = {};
+
 // Default initial game state (should match your frontend's initial state)
 function getInitialGameState() {
   return {
@@ -39,6 +42,20 @@ io.on('connection', (socket) => {
     if (!games[roomId]) {
       games[roomId] = getInitialGameState();
     }
+    // Assign player color
+    if (!playerAssignments[roomId]) playerAssignments[roomId] = {};
+    let assignedColor;
+    if (!playerAssignments[roomId].white) {
+      playerAssignments[roomId].white = socket.id;
+      assignedColor = 'white';
+    } else if (!playerAssignments[roomId].black) {
+      playerAssignments[roomId].black = socket.id;
+      assignedColor = 'black';
+    } else {
+      // More than 2 players: assign as spectator (null)
+      assignedColor = null;
+    }
+    socket.emit('playerAssignment', { color: assignedColor });
     socket.emit('gameState', games[roomId]);
     socket.to(roomId).emit('playerJoined');
   });
