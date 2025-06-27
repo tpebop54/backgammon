@@ -870,12 +870,12 @@ const BackgammonBoard: React.FC = () => {
                     )}
 
                     {/* Game Info */}
-                    <div className="mb-4 text-center">
+                    <div className="mb-4 text-center h-6 flex items-center justify-center">
                         {/* Current Player header removed */}
                         {/* Dice removed from here */}
-                        {effectiveState.dice && effectiveState.possibleMoves.length === 0 && effectiveState.usedDice.some(u => !u) && (
-                            <div className="text-red-600 font-bold mt-2">No moves available!</div>
-                        )}
+                        {effectiveState.dice && effectiveState.possibleMoves.length === 0 && effectiveState.usedDice.some(u => !u) ? (
+                            <div className="text-red-600 font-bold">No moves available!</div>
+                        ) : null}
                     </div>
 
                     {/* Black Bar (top, above board) */}
