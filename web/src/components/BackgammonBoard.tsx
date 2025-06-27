@@ -73,9 +73,8 @@ const BackgammonBoard: React.FC = () => {
     });
     // Add winner state
     const [winner, setWinner] = useState<string | null>(null);
-
-    // Handler and helper function declarations must come before their usage
-    // Move all handler and helper function declarations above any usage in render or other handlers
+    // Track mouse position for drag preview
+    const [dragMouse, setDragMouse] = useState<{ x: number; y: number } | null>(null);
 
     // --- Handler and helper function declarations ---
     // Memoize canBearOff to avoid unnecessary recalculations
@@ -754,40 +753,14 @@ const BackgammonBoard: React.FC = () => {
         );
     };
 
-    // Winner screen
-    if (winner) {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-screen bg-amber-100">
-                <div className="w-full flex flex-col items-center mb-8">
-                    <div className="text-4xl font-bold text-green-700 mb-2">{winner} WINS!</div>
-                    <button
-                        onClick={() => window.location.reload()}
-                        className="px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xl font-bold shadow-lg"
-                    >
-                        Refresh Page
-                    </button>
-                </div>
-                <div className="text-6xl font-bold text-amber-900 mb-8">🎉</div>
-                <button
-                    onClick={() => resetGame(initialGameState)}
-                    className="px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xl"
-                >
-                    New Game
-                </button>
-            </div>
-        );
-    }
+    // Track mouse position for drag preview
+    useEffect(() => {
+        if (!draggedPiece) return;
+        const handle = (e: MouseEvent) => setDragMouse({ x: e.clientX, y: e.clientY });
+        window.addEventListener('dragover', handle);
+        return () => window.removeEventListener('dragover', handle);
+    }, [draggedPiece]);
 
-    // Use the state variables for win detection
-    const totalWhite = gameState.home.white;
-    const totalBlack = gameState.home.black;
-    const whiteOnBoard = gameState.board.reduce((sum, n) => sum + (n > 0 ? n : 0), 0) + gameState.bar.white;
-    const blackOnBoard = gameState.board.reduce((sum, n) => sum + (n < 0 ? -n : 0), 0) + gameState.bar.black;
-    let winnerCheck: string | null = null;
-    if (totalWhite === initialWhiteCheckers && whiteOnBoard === 0) winnerCheck = 'WHITE';
-    if (totalBlack === initialBlackCheckers && blackOnBoard === 0) winnerCheck = 'BLACK';
-
-    // Move all handler and helper function definitions above the return statement and before any JSX usage
     // 1. Define handleDragOver
     const handleDragOver = (e: React.DragEvent, pointIndex?: number) => {
         e.preventDefault();
@@ -811,185 +784,9 @@ const BackgammonBoard: React.FC = () => {
         setDraggingCheckerIndex(null);
     };
 
-    // Track mouse position for drag preview
-    const [dragMouse, setDragMouse] = useState<{ x: number; y: number } | null>(null);
-    useEffect(() => {
-        if (!draggedPiece) return;
-        const handle = (e: MouseEvent) => setDragMouse({ x: e.clientX, y: e.clientY });
-        window.addEventListener('dragover', handle);
-        return () => window.removeEventListener('dragover', handle);
-    }, [draggedPiece]);
-
     return (
         <div className="flex flex-col items-center p-8 bg-amber-100 min-h-screen">
-            {/* Drag Preview Checker */}
-            {draggedPiece && dragMouse && (
-                <div
-                    style={{
-                        position: 'fixed',
-                        pointerEvents: 'none',
-                        left: dragMouse.x - 16, // Center 32x32 checker
-                        top: dragMouse.y - 16,
-                        zIndex: 10000,
-                        width: 32,
-                        height: 32,
-                    }}
-                >
-                    <div
-                        className={`w-8 h-8 rounded-full border-2 ${draggedPiece.player === 'white' ? 'bg-white border-gray-800' : 'bg-gray-800 border-white'}`}
-                        style={{ width: 32, height: 32 }}
-                    />
-                </div>
-            )}
-
-            <h1 className="text-3xl font-bold mb-8 text-amber-900">Backgammon</h1>
-
-            {/* Game Info */}
-            <div className="mb-4 text-center">
-                <div className="text-xl font-bold text-amber-800 mb-2">
-                    Current Player: <span className="text-2xl">{gameState.currentPlayer.toUpperCase()}</span>
-                </div>
-
-                {gameState.dice && (
-                    <div className="flex items-center justify-center gap-4 mt-4">
-                        <div className="flex gap-2">
-                            {gameState.dice.map((die, index) => (
-                                <div
-                                    key={index}
-                                    className={`w-12 h-12 border-2 border-gray-800 rounded-lg flex items-center justify-center text-2xl font-bold shadow-lg transition-all ${gameState.usedDice[index] ? 'bg-gray-400 text-gray-600 scale-90' : 'bg-white text-black'
-                                        }`}
-                                >
-                                    {die}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {effectiveState.dice && effectiveState.possibleMoves.length === 0 && effectiveState.usedDice.some(u => !u) && (
-                    <div className="text-red-600 font-bold mt-2">No moves available!</div>
-                )}
-            </div>
-
-            {/* Dice Roll Button */}
-            {!effectiveState.dice && (
-                <button
-                    onClick={rollDice}
-                    className="mb-6 px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xl font-bold shadow-lg"
-                >
-                    Roll Dice
-                </button>
-            )}
-
-            {/* Undo/Confirm Buttons */}
-            {effectiveState.dice && (
-                <div className="flex gap-4 mb-4">
-                    <button
-                        onClick={handleUndo}
-                        className="px-6 py-2 bg-gray-400 text-white rounded-lg hover:bg-gray-500 transition-colors text-lg font-bold shadow"
-                        disabled={!turnStartState || JSON.stringify(effectiveState) === JSON.stringify(turnStartState)}
-                    >
-                        Undo
-                    </button>
-                    <button
-                        onClick={handleConfirmMoves}
-                        className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-lg font-bold shadow"
-                        disabled={!pendingGameState || JSON.stringify(effectiveState) === JSON.stringify(turnStartState)}
-                    >
-                        Confirm Moves
-                    </button>
-                </div>
-            )}
-
-            {/* Black Bar (top, above board) */}
-            <div className="flex w-full justify-center mb-2">
-                <div className="w-[384px] flex justify-end">
-                    {/* left padding for alignment */}
-                </div>
-                {gameState.bar.black > 0 && (
-                    <div className="flex gap-1">
-                        {Array.from({ length: gameState.bar.black }, (_, i) => (
-                            <div
-                                key={`bar-black-${i}`}
-                                draggable={gameState.currentPlayer === 'black' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing'}
-                                onDragStart={e => gameState.currentPlayer === 'black' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing' ? handleBarDragStart(e, 'black') : e.preventDefault()}
-                                onDragEnd={handleDragEnd}
-                                className={`w-8 h-8 rounded-full border-2 bg-gray-800 border-white select-none transition-transform ${gameState.currentPlayer === 'black' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing' ? 'cursor-move hover:scale-110' : ''}`}
-                                style={{ userSelect: 'none', margin: '2px 0' }}
-                            />
-                        ))}
-                    </div>
-                )}
-                <div className="w-[128px]" /> {/* right padding for alignment */}
-            </div>
-
-            {/* Board */}
-            <div className="border-4 border-amber-900 bg-amber-200 p-4 shadow-2xl">
-                {/* Top Labels (Points 13-24) */}
-                <div className="flex gap-1 mb-1 items-end">
-                    {Array.from({ length: 6 }, (_, i) => (
-                        <div key={`label-top-${12 + i}`} className="w-12 text-center text-black font-bold text-xs">{13 + i}</div>
-                    ))}
-                    <div className="w-4 mx-1" /> {/* Bar placeholder */}
-                    {Array.from({ length: 6 }, (_, i) => (
-                        <div key={`label-top-${18 + i}`} className="w-12 text-center text-black font-bold text-xs">{19 + i}</div>
-                    ))}
-                    <div className="w-16" /> {/* Home placeholder */}
-                </div>
-
-                {/* Top Row (Points 13-24) */}
-                <div className="flex gap-1 mb-2 items-end">
-                    {Array.from({ length: 6 }, (_, i) => renderPoint(12 + i, true))}
-                    {renderBar()}
-                    {Array.from({ length: 6 }, (_, i) => renderPoint(18 + i, true))}
-                    {renderHome('black')}
-                </div>
-
-                {/* Bottom Row (Points 12-1) */}
-                <div className="flex gap-1 items-start">
-                    {Array.from({ length: 6 }, (_, i) => renderPoint(11 - i, false))}
-                    {renderBar()}
-                    {Array.from({ length: 6 }, (_, i) => renderPoint(5 - i, false))}
-                    {renderHome('white')}
-                </div>
-
-                {/* Bottom Labels (Points 12-1) */}
-                <div className="flex gap-1 mt-1 items-start">
-                    {Array.from({ length: 6 }, (_, i) => (
-                        <div key={`label-bot-${11 - i}`} className="w-12 text-center text-black font-bold text-xs">{12 - i}</div>
-                    ))}
-                    <div className="w-4 mx-1" /> {/* Bar placeholder */}
-                    {Array.from({ length: 6 }, (_, i) => (
-                        <div key={`label-bot-${5 - i}`} className="w-12 text-center text-black font-bold text-xs">{6 - i}</div>
-                    ))}
-                    <div className="w-16" /> {/* Home placeholder */}
-                </div>
-            </div>
-
-            {/* White Bar (bottom, below board) */}
-            <div className="flex w-full justify-center mt-2">
-                <div className="w-[384px] flex justify-end">
-                    {/* left padding for alignment */}
-                </div>
-                {gameState.bar.white > 0 && (
-                    <div className="flex gap-1">
-                        {Array.from({ length: gameState.bar.white }, (_, i) => (
-                            <div
-                                key={`bar-white-${i}`}
-                                draggable={gameState.currentPlayer === 'white' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing'}
-                                onDragStart={e => gameState.currentPlayer === 'white' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing' ? handleBarDragStart(e, 'white') : e.preventDefault()}
-                                onDragEnd={handleDragEnd}
-                                className={`w-4 h-4 rounded-full border-2 bg-white border-gray-800 select-none transition-transform ${gameState.currentPlayer === 'white' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing' ? 'cursor-move hover:scale-110' : ''}`}
-                                style={{ userSelect: 'none', margin: '2px 0' }}
-                            />
-                        ))}
-                    </div>
-                )}
-                <div className="w-[128px]" /> {/* right padding for alignment */}
-            </div>
-
-            {/* Winner Screen */}
-            {winner && (
+            {winner ? (
                 <div className="flex flex-col items-center justify-center min-h-screen bg-amber-100">
                     <div className="w-full flex flex-col items-center mb-8">
                         <div className="text-4xl font-bold text-green-700 mb-2">{winner} WINS!</div>
@@ -1008,6 +805,174 @@ const BackgammonBoard: React.FC = () => {
                         New Game
                     </button>
                 </div>
+            ) : (
+                <>
+                {/* Drag Preview Checker */}
+                {draggedPiece && dragMouse && (
+                    <div
+                        style={{
+                            position: 'fixed',
+                            pointerEvents: 'none',
+                            left: dragMouse.x - 16, // Center 32x32 checker
+                            top: dragMouse.y - 16,
+                            zIndex: 10000,
+                            width: 32,
+                            height: 32,
+                        }}
+                    >
+                        <div
+                            className={`w-8 h-8 rounded-full border-2 ${draggedPiece.player === 'white' ? 'bg-white border-gray-800' : 'bg-gray-800 border-white'}`}
+                            style={{ width: 32, height: 32 }}
+                        />
+                    </div>
+                )}
+
+                <h1 className="text-3xl font-bold mb-8 text-amber-900">Backgammon</h1>
+
+                {/* Game Info */}
+                <div className="mb-4 text-center">
+                    <div className="text-xl font-bold text-amber-800 mb-2">
+                        Current Player: <span className="text-2xl">{gameState.currentPlayer.toUpperCase()}</span>
+                    </div>
+
+                    {gameState.dice && (
+                        <div className="flex items-center justify-center gap-4 mt-4">
+                            <div className="flex gap-2">
+                                {gameState.dice.map((die, index) => (
+                                    <div
+                                        key={index}
+                                        className={`w-12 h-12 border-2 border-gray-800 rounded-lg flex items-center justify-center text-2xl font-bold shadow-lg transition-all ${gameState.usedDice[index] ? 'bg-gray-400 text-gray-600 scale-90' : 'bg-white text-black'
+                                            }`}
+                                    >
+                                        {die}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {effectiveState.dice && effectiveState.possibleMoves.length === 0 && effectiveState.usedDice.some(u => !u) && (
+                        <div className="text-red-600 font-bold mt-2">No moves available!</div>
+                    )}
+                </div>
+
+                {/* Dice Roll Button */}
+                {!effectiveState.dice && (
+                    <button
+                        onClick={rollDice}
+                        className="mb-6 px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xl font-bold shadow-lg"
+                    >
+                        Roll Dice
+                    </button>
+                )}
+
+                {/* Undo/Confirm Buttons */}
+                {effectiveState.dice && (
+                    <div className="flex gap-4 mb-4">
+                        <button
+                            onClick={handleUndo}
+                            className="px-6 py-2 bg-gray-400 text-white rounded-lg hover:bg-gray-500 transition-colors text-lg font-bold shadow"
+                            disabled={!turnStartState || JSON.stringify(effectiveState) === JSON.stringify(turnStartState)}
+                        >
+                            Undo
+                        </button>
+                        <button
+                            onClick={handleConfirmMoves}
+                            className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-lg font-bold shadow"
+                            disabled={!pendingGameState || JSON.stringify(effectiveState) === JSON.stringify(turnStartState)}
+                        >
+                            Confirm Moves
+                        </button>
+                    </div>
+                )}
+
+                {/* Black Bar (top, above board) */}
+                <div className="flex w-full justify-center mb-2">
+                    <div className="w-[384px] flex justify-end">
+                        {/* left padding for alignment */}
+                    </div>
+                    {gameState.bar.black > 0 && (
+                        <div className="flex gap-1">
+                            {Array.from({ length: gameState.bar.black }, (_, i) => (
+                                <div
+                                    key={`bar-black-${i}`}
+                                    draggable={gameState.currentPlayer === 'black' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing'}
+                                    onDragStart={e => gameState.currentPlayer === 'black' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing' ? handleBarDragStart(e, 'black') : e.preventDefault()}
+                                    onDragEnd={handleDragEnd}
+                                    className={`w-8 h-8 rounded-full border-2 bg-gray-800 border-white select-none transition-transform ${gameState.currentPlayer === 'black' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing' ? 'cursor-move hover:scale-110' : ''}`}
+                                    style={{ userSelect: 'none', margin: '2px 0' }}
+                                />
+                            ))}
+                        </div>
+                    )}
+                    <div className="w-[128px]" /> {/* right padding for alignment */}
+                </div>
+
+                {/* Board */}
+                <div className="border-4 border-amber-900 bg-amber-200 p-4 shadow-2xl">
+                    {/* Top Labels (Points 13-24) */}
+                    <div className="flex gap-1 mb-1 items-end">
+                        {Array.from({ length: 6 }, (_, i) => (
+                            <div key={`label-top-${12 + i}`} className="w-12 text-center text-black font-bold text-xs">{13 + i}</div>
+                        ))}
+                        <div className="w-4 mx-1" /> {/* Bar placeholder */}
+                        {Array.from({ length: 6 }, (_, i) => (
+                            <div key={`label-top-${18 + i}`} className="w-12 text-center text-black font-bold text-xs">{19 + i}</div>
+                        ))}
+                        <div className="w-16" /> {/* Home placeholder */}
+                    </div>
+
+                    {/* Top Row (Points 13-24) */}
+                    <div className="flex gap-1 mb-2 items-end">
+                        {Array.from({ length: 6 }, (_, i) => renderPoint(12 + i, true))}
+                        {renderBar()}
+                        {Array.from({ length: 6 }, (_, i) => renderPoint(18 + i, true))}
+                        {renderHome('black')}
+                    </div>
+
+                    {/* Bottom Row (Points 12-1) */}
+                    <div className="flex gap-1 items-start">
+                        {Array.from({ length: 6 }, (_, i) => renderPoint(11 - i, false))}
+                        {renderBar()}
+                        {Array.from({ length: 6 }, (_, i) => renderPoint(5 - i, false))}
+                        {renderHome('white')}
+                    </div>
+
+                    {/* Bottom Labels (Points 12-1) */}
+                    <div className="flex gap-1 mt-1 items-start">
+                        {Array.from({ length: 6 }, (_, i) => (
+                            <div key={`label-bot-${11 - i}`} className="w-12 text-center text-black font-bold text-xs">{12 - i}</div>
+                        ))}
+                        <div className="w-4 mx-1" /> {/* Bar placeholder */}
+                        {Array.from({ length: 6 }, (_, i) => (
+                            <div key={`label-bot-${5 - i}`} className="w-12 text-center text-black font-bold text-xs">{6 - i}</div>
+                        ))}
+                        <div className="w-16" /> {/* Home placeholder */}
+                    </div>
+                </div>
+
+                {/* White Bar (bottom, below board) */}
+                <div className="flex w-full justify-center mt-2">
+                    <div className="w-[384px] flex justify-end">
+                        {/* left padding for alignment */}
+                    </div>
+                    {gameState.bar.white > 0 && (
+                        <div className="flex gap-1">
+                            {Array.from({ length: gameState.bar.white }, (_, i) => (
+                                <div
+                                    key={`bar-white-${i}`}
+                                    draggable={gameState.currentPlayer === 'white' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing'}
+                                    onDragStart={e => gameState.currentPlayer === 'white' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing' ? handleBarDragStart(e, 'white') : e.preventDefault()}
+                                    onDragEnd={handleDragEnd}
+                                    className={`w-4 h-4 rounded-full border-2 bg-white border-gray-800 select-none transition-transform ${gameState.currentPlayer === 'white' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing' ? 'cursor-move hover:scale-110' : ''}`}
+                                    style={{ userSelect: 'none', margin: '2px 0' }}
+                                />
+                            ))}
+                        </div>
+                    )}
+                    <div className="w-[128px]" /> {/* right padding for alignment */}
+                </div>
+                </>
             )}
         </div>
     );
