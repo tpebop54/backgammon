@@ -827,6 +827,35 @@ const BackgammonBoard: React.FC = () => {
         // Prevent any moves if all dice are used
         if (!effectiveState.dice || effectiveState.usedDice.every(u => u)) return;
 
+        // If a checker is already selected and user clicks a valid destination, perform the move
+        if (selectedPoint !== null && selectedPoint !== pointIndex) {
+            // Only consider moves using unused dice
+            const unusedDice = effectiveState.dice.filter((_, idx) => !effectiveState.usedDice[idx]);
+            const possibleMoves = effectiveState.possibleMoves.filter(move =>
+                move.from === selectedPoint && move.to === pointIndex && unusedDice.includes(move.dice)
+            );
+            if (possibleMoves.length > 0) {
+                // If only one possible move, use it; otherwise prefer bear-off if available
+                let move = possibleMoves[0];
+                if (possibleMoves.length > 1) {
+                    const bearOffMove = possibleMoves.find(m => m.to === -2);
+                    if (bearOffMove) move = bearOffMove;
+                }
+                // For doubles, ensure we use the first unused die of the correct value
+                if (effectiveState.dice && effectiveState.dice.filter((d, i) => !effectiveState.usedDice[i] && d === move.dice).length > 0) {
+                    const dieIdx = effectiveState.dice.findIndex((d, i) => !effectiveState.usedDice[i] && d === move.dice);
+                    if (dieIdx !== -1) {
+                        makeMove(move.from, move.to, effectiveState.dice[dieIdx]);
+                        setSelectedPoint(null);
+                        return;
+                    }
+                }
+                makeMove(move.from, move.to, move.dice);
+                setSelectedPoint(null);
+                return;
+            }
+        }
+
         // Only consider moves using unused dice
         const unusedDice = effectiveState.dice.filter((_, idx) => !effectiveState.usedDice[idx]);
         const possibleMoves = effectiveState.possibleMoves.filter(move =>
@@ -845,29 +874,16 @@ const BackgammonBoard: React.FC = () => {
             const move = possibleMoves[0];
             // For doubles, ensure we use the first unused die of the correct value
             if (effectiveState.dice && effectiveState.dice.filter((d, i) => !effectiveState.usedDice[i] && d === move.dice).length > 0) {
+                // Find the first unused die index of this value
                 const dieIdx = effectiveState.dice.findIndex((d, i) => !effectiveState.usedDice[i] && d === move.dice);
                 if (dieIdx !== -1) {
+                    // Mark only that die as used in makeMove
                     makeMove(move.from, move.to, effectiveState.dice[dieIdx]);
                     setSelectedPoint(null);
                     return;
                 }
             }
-            makeMove(move.from, move.to, move.dice);
-            setSelectedPoint(null);
-            return;
-        }
-        // If only one possible non-bear-off move, auto-move
-        const nonBearOffMoves = possibleMoves.filter(move => move.to !== -2);
-        if (nonBearOffMoves.length === 1) {
-            const move = nonBearOffMoves[0];
-            if (effectiveState.dice && effectiveState.dice.filter((d, i) => !effectiveState.usedDice[i] && d === move.dice).length > 0) {
-                const dieIdx = effectiveState.dice.findIndex((d, i) => !effectiveState.usedDice[i] && d === move.dice);
-                if (dieIdx !== -1) {
-                    makeMove(move.from, move.to, effectiveState.dice[dieIdx]);
-                    setSelectedPoint(null);
-                    return;
-                }
-            }
+            // Fallback (shouldn't happen):
             makeMove(move.from, move.to, move.dice);
             setSelectedPoint(null);
             return;
@@ -876,6 +892,7 @@ const BackgammonBoard: React.FC = () => {
         if (possibleMoves.length > 1) {
             const bearOffMove = possibleMoves.find(move => move.to === -2);
             if (bearOffMove) {
+                // For doubles, ensure we use the first unused die of the correct value
                 if (effectiveState.dice && effectiveState.dice.filter((d, i) => !effectiveState.usedDice[i] && d === bearOffMove.dice).length > 0) {
                     const dieIdx = effectiveState.dice.findIndex((d, i) => !effectiveState.usedDice[i] && d === bearOffMove.dice);
                     if (dieIdx !== -1) {
