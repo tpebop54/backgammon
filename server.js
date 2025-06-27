@@ -69,6 +69,19 @@ io.on('connection', (socket) => {
     socket.emit('playerAssignment', { color: assignedColor });
     socket.emit('gameState', games[roomId]);
     socket.to(roomId).emit('playerJoined');
+
+    // If game is in setup phase, roll dice and set to playing
+    if (games[roomId].gamePhase === 'setup') {
+      const dice1 = Math.floor(Math.random() * 6) + 1;
+      const dice2 = Math.floor(Math.random() * 6) + 1;
+      const diceArray = dice1 === dice2 ? [dice1, dice1, dice1, dice1] : [dice1, dice2];
+      games[roomId] = {
+        ...games[roomId],
+        dice: diceArray,
+        usedDice: new Array(diceArray.length).fill(false),
+        gamePhase: 'playing',
+      };
+    }
   });
 
   // Instead of sending the full newState, send a move object and let the server update state and roll dice
@@ -133,6 +146,7 @@ io.on('connection', (socket) => {
         home: newHome,
         usedDice: newUsedDice,
         gamePhase: 'finished',
+        dice: null, // Hide dice after win
       };
       io.to(roomId).emit('gameState', games[roomId]);
       return;
@@ -145,6 +159,7 @@ io.on('connection', (socket) => {
         home: newHome,
         usedDice: newUsedDice,
         gamePhase: 'finished',
+        dice: null, // Hide dice after win
       };
       io.to(roomId).emit('gameState', games[roomId]);
       return;
