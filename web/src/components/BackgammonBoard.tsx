@@ -777,7 +777,7 @@ if (winner) {
                     </div>
                 )}
 
-                {gameState.possibleMoves.length === 0 && gameState.dice && (
+                {effectiveState.dice && effectiveState.possibleMoves.length === 0 && effectiveState.usedDice.some(u => !u) && (
                     <div className="text-red-600 font-bold mt-2">No moves available!</div>
                 )}
             </div>
