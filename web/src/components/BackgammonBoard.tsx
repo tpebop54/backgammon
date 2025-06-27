@@ -68,6 +68,7 @@ const BackgammonBoard: React.FC = () => {
     const [draggedPiece, setDraggedPiece] = useState<{ fromPoint: number; player: Player } | null>(null);
     const [dragOverPoint, setDragOverPoint] = useState<number | null>(null);
     const [invalidDropFeedback, setInvalidDropFeedback] = useState<string | null>(null);
+    const [draggingPointIndex, setDraggingPointIndex] = useState<number | null>(null);
 
     // Helper function to check if a player can bear off
     const canBearOff = (player: Player, board: number[]): boolean => {
@@ -300,7 +301,15 @@ const BackgammonBoard: React.FC = () => {
         setTimeout(() => {
             setDraggedPiece({ fromPoint: pointIndex, player });
             setSelectedPoint(pointIndex);
+            setDraggingPointIndex(pointIndex);
         }, 0);
+
+        // Use a transparent drag image
+        const img = document.createElement('img');
+        img.src =
+            'data:image/svg+xml;base64,' +
+            btoa('<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"></svg>');
+        e.dataTransfer.setDragImage(img, 0, 0);
 
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('application/json', JSON.stringify({ fromPoint: pointIndex, player }));
@@ -447,6 +456,7 @@ const BackgammonBoard: React.FC = () => {
         setDraggedPiece(null);
         setSelectedPoint(null);
         setDragOverPoint(null);
+        setDraggingPointIndex(null);
     };
 
     const handlePointClick = (pointIndex: number) => {
@@ -545,23 +555,30 @@ const BackgammonBoard: React.FC = () => {
 
         for (let i = 0; i < actualVisible; i++) {
             const isTopPiece = i === actualVisible - 1;
-            pieceElements.push(
-                <div
-                    key={i}
-                    draggable={canDrag && isTopPiece} // Only top piece is draggable
-                    onDragStart={(e) => canDrag && isTopPiece ? handleDragStart(e, pointIndex) : e.preventDefault()}
-                    onDragEnd={handleDragEnd}
-                    className={`w-8 h-8 rounded-full border-2 ${player === 'white'
-                        ? 'bg-white border-gray-800'
-                        : 'bg-gray-800 border-white'
-                        } select-none transition-transform ${canDrag && isTopPiece ? 'cursor-move hover:scale-110 z-10' : 'cursor-pointer'
-                        }`}
-                    style={{
-                        userSelect: 'none',
-                        marginTop: i === 0 ? '0' : '-4px' // Overlap pieces slightly
-                    }}
-                />
-            );
+            // Hide the checker if it's being dragged
+            if (canDrag && isTopPiece && draggingPointIndex === pointIndex) {
+                pieceElements.push(
+                    <div key={i} style={{ width: '2rem', height: '2rem', marginTop: i === 0 ? '0' : '-4px', visibility: 'hidden' }} />
+                );
+            } else {
+                pieceElements.push(
+                    <div
+                        key={i}
+                        draggable={canDrag && isTopPiece} // Only top piece is draggable
+                        onDragStart={(e) => canDrag && isTopPiece ? handleDragStart(e, pointIndex) : e.preventDefault()}
+                        onDragEnd={handleDragEnd}
+                        className={`w-8 h-8 rounded-full border-2 ${player === 'white'
+                            ? 'bg-white border-gray-800'
+                            : 'bg-gray-800 border-white'
+                            } select-none transition-transform ${canDrag && isTopPiece ? 'cursor-move hover:scale-110 z-10' : 'cursor-pointer'
+                            }`}
+                        style={{
+                            userSelect: 'none',
+                            marginTop: i === 0 ? '0' : '-4px'
+                        }}
+                    />
+                );
+            }
         }
 
         // Add overflow indicator if more than 5 pieces
