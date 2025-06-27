@@ -19,23 +19,28 @@ interface SocketContextType {
   sendMove: (newState: GameState) => void;
   resetGame: () => void;
   joinRoom: (roomId: string) => void;
+  connected: boolean;
 }
 
 const SocketContext = createContext<SocketContextType | undefined>(undefined);
 
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [gameState, setGameState] = useState<GameState | null>(null);
+  const [connected, setConnected] = useState(false);
   const socketRef = useRef<any>(null);
   const roomRef = useRef<string>('default');
 
   useEffect(() => {
     const socket = getSocket();
     socketRef.current = socket;
+    socket.on('connect', () => setConnected(true));
+    socket.on('disconnect', () => setConnected(false));
     socket.on('gameState', (state: GameState) => {
       setGameState(state);
     });
-    // Optionally handle disconnects, errors, etc.
     return () => {
+      socket.off('connect');
+      socket.off('disconnect');
       socket.off('gameState');
     };
   }, []);
@@ -60,7 +65,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   return (
-    <SocketContext.Provider value={{ gameState, sendMove, resetGame, joinRoom }}>
+    <SocketContext.Provider value={{ gameState, sendMove, resetGame, joinRoom, connected }}>
       {children}
     </SocketContext.Provider>
   );

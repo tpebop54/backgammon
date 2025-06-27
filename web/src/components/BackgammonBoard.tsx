@@ -75,7 +75,7 @@ const BackgammonBoard: React.FC = () => {
     const [dragMouse, setDragMouse] = useState<{ x: number; y: number } | null>(null);
 
     // Multiplayer: join room and sync state
-    const { gameState: remoteGameState, sendMove, resetGame: resetGameSocket, joinRoom } = useSocketGame();
+    const { gameState: remoteGameState, sendMove, resetGame: resetGameSocket, joinRoom, connected } = useSocketGame();
     useEffect(() => {
         joinRoom('default'); // For now, always join the default room
     }, [joinRoom]);
@@ -821,6 +821,12 @@ const BackgammonBoard: React.FC = () => {
 
     return (
         <div className="flex flex-col items-center p-8 bg-amber-100 min-h-screen">
+            {/* Connection indicator */}
+            <div className="flex items-center mb-2">
+                <span className={`inline-block w-3 h-3 rounded-full mr-2 ${connected ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                <span className="text-xs font-semibold text-gray-700">{connected ? 'Connected' : 'Disconnected'}</span>
+            </div>
+
             <h1 className="text-3xl font-bold mb-8 text-amber-900">Backgammon</h1>
 
             {/* Controls always rendered, but disabled/hidden if winner */}
