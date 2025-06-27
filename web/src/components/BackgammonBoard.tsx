@@ -822,6 +822,18 @@ const BackgammonBoard: React.FC = () => {
 
     return (
         <div className="flex flex-col items-center p-8 bg-amber-100 min-h-screen">
+            <h1 className="text-3xl font-bold mb-8 text-amber-900">Backgammon</h1>
+
+            {/* Controls always rendered, but disabled/hidden if winner */}
+            <Controls
+                onUndo={handleUndo}
+                onConfirm={handleConfirmMoves}
+                onNewGame={handleNewGame}
+                canUndo={!winner && !!pendingGameState && JSON.stringify(effectiveState) !== JSON.stringify(turnStartState)}
+                canConfirm={!winner && !!(pendingGameState && JSON.stringify(effectiveState) !== JSON.stringify(turnStartState) && effectiveState.usedDice.every(u => u))}
+                showNewGame={!!winner}
+            />
+
             {winner ? (
                 <div className="flex flex-col items-center justify-center min-h-screen bg-amber-100">
                     <div className="text-6xl font-bold text-amber-900 mb-8">🎉</div>
@@ -855,8 +867,6 @@ const BackgammonBoard: React.FC = () => {
                     </div>
                 )}
 
-                <h1 className="text-3xl font-bold mb-8 text-amber-900">Backgammon</h1>
-
                 {/* Game Info */}
                 <div className="mb-4 text-center">
                     {/* Current Player header removed */}
@@ -865,16 +875,6 @@ const BackgammonBoard: React.FC = () => {
                         <div className="text-red-600 font-bold mt-2">No moves available!</div>
                     )}
                 </div>
-
-                {/* Controls */}
-                <Controls
-                    onUndo={handleUndo}
-                    onConfirm={handleConfirmMoves}
-                    onNewGame={handleNewGame}
-                    canUndo={!!pendingGameState && JSON.stringify(effectiveState) !== JSON.stringify(turnStartState)}
-                    canConfirm={!!(pendingGameState && JSON.stringify(effectiveState) !== JSON.stringify(turnStartState) && effectiveState.usedDice.every(u => u))}
-                    showNewGame={!!winner}
-                />
 
                 {/* Black Bar (top, above board) */}
                 <div className="flex w-full justify-center mb-2">
