@@ -576,25 +576,19 @@ const BackgammonBoard: React.FC = () => {
 
         // Create piece elements with proper spacing and alignment
         const pieceElements = [];
-        const maxVisible = 5;
+        const maxVisible = 7; // Show up to 6 checkers + overflow indicator
         const actualVisible = Math.min(absCount, maxVisible);
         const availableHeight = 160; // px
         const checkerSize = 32; // px
         let overlap = 0;
         if (actualVisible > 1) {
-            const neededHeight = checkerSize * actualVisible;
-            if (neededHeight > availableHeight) {
-                overlap = (neededHeight - availableHeight) / (actualVisible - 1);
-            } else {
-                overlap = 0;
-            }
+            overlap = (checkerSize * actualVisible - availableHeight) / (actualVisible - 1);
+            if (overlap < 0) overlap = 0;
         }
-        for (let i = 0; i < actualVisible; i++) {
+        for (let i = 0; i < Math.min(absCount, maxVisible - 1); i++) {
             const isBeingDragged = canDrag && draggingPointIndex === pointIndex && draggingCheckerIndex === i;
             // For top row, stack from top edge; for bottom row, stack from bottom edge
-            const pos = isTopRow
-                ? i * (checkerSize - overlap)
-                : i * (checkerSize - overlap);
+            const pos = i * (checkerSize - overlap);
             pieceElements.push(
                 <div
                     key={i}
@@ -615,17 +609,15 @@ const BackgammonBoard: React.FC = () => {
                 />
             );
         }
-        // Add overflow indicator if more than 5 pieces
-        if (absCount > maxVisible) {
-            const i = actualVisible;
-            const pos = isTopRow
-                ? i * (checkerSize - overlap)
-                : i * (checkerSize - overlap);
+        // Add overflow indicator if more than 6 pieces
+        if (absCount > maxVisible - 1) {
+            const i = maxVisible - 1;
+            const pos = i * (checkerSize - overlap);
             pieceElements.push(
                 <div
                     key={`overflow-${pointIndex}`}
                     draggable={canDrag}
-                    onDragStart={(e) => handleDragStart(e, pointIndex, actualVisible)}
+                    onDragStart={(e) => handleDragStart(e, pointIndex, i)}
                     onDragEnd={handleDragEnd}
                     className={`absolute left-1/2 -translate-x-1/2 w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold ${player === 'white'
                         ? 'bg-white border-gray-800 text-gray-800'
@@ -639,7 +631,7 @@ const BackgammonBoard: React.FC = () => {
                         bottom: !isTopRow ? pos : undefined
                     }}
                 >
-                    +{absCount - maxVisible}
+                    +{absCount - (maxVisible - 1)}
                 </div>
             );
         }
@@ -656,7 +648,7 @@ const BackgammonBoard: React.FC = () => {
                 onDrop={(e) => handleDrop(e, pointIndex)}
                 style={{ overflow: 'hidden' }}
             >
-                <div style={{ position: 'relative', width: checkerSize, height: availableHeight }}>
+                <div style={{ position: 'relative', width: checkerSize, height: availableHeight, marginBottom: isTopRow ? 4 : 0, marginTop: !isTopRow ? 4 : 0 }}>
                     {pieceElements}
                 </div>
                 {/* No label here */}
