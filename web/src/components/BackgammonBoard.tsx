@@ -709,36 +709,14 @@ const BackgammonBoard: React.FC = () => {
 
     // Dynamically determine checker count for each player from initialGameState
     const initialWhiteCheckers = initialGameState.board.reduce((sum, n) => sum + (n > 0 ? n : 0), 0) + initialGameState.bar.white + initialGameState.home.white;
-const initialBlackCheckers = initialGameState.board.reduce((sum, n) => sum + (n < 0 ? -n : 0), 0) + initialGameState.bar.black + initialGameState.home.black;
-const totalWhite = gameState.home.white;
-const totalBlack = gameState.home.black;
-const whiteOnBoard = gameState.board.reduce((sum, n) => sum + (n > 0 ? n : 0), 0) + gameState.bar.white;
-const blackOnBoard = gameState.board.reduce((sum, n) => sum + (n < 0 ? -n : 0), 0) + gameState.bar.black;
-let winner: string | null = null;
-if (totalWhite === initialWhiteCheckers && whiteOnBoard === 0) winner = 'WHITE';
-if (totalBlack === initialBlackCheckers && blackOnBoard === 0) winner = 'BLACK';
-if (winner) {
-    return (
-        <div className="flex flex-col items-center justify-center min-h-screen bg-amber-100">
-            <div className="w-full flex flex-col items-center mb-8">
-                <div className="text-4xl font-bold text-green-700 mb-2">{winner} WINS!</div>
-                <button
-                    onClick={() => window.location.reload()}
-                    className="px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xl font-bold shadow-lg"
-                >
-                    Refresh Page
-                </button>
-            </div>
-            <div className="text-6xl font-bold text-amber-900 mb-8">🎉</div>
-            <button
-                onClick={() => setGameState(initialGameState)}
-                className="px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xl"
-            >
-                New Game
-            </button>
-        </div>
-    );
-    }
+    const initialBlackCheckers = initialGameState.board.reduce((sum, n) => sum + (n < 0 ? -n : 0), 0) + initialGameState.bar.black + initialGameState.home.black;
+    const totalWhite = gameState.home.white;
+    const totalBlack = gameState.home.black;
+    const whiteOnBoard = gameState.board.reduce((sum, n) => sum + (n > 0 ? n : 0), 0) + gameState.bar.white;
+    const blackOnBoard = gameState.board.reduce((sum, n) => sum + (n < 0 ? -n : 0), 0) + gameState.bar.black;
+    let winner: string | null = null;
+    if (totalWhite === initialWhiteCheckers && whiteOnBoard === 0) winner = 'WHITE';
+    if (totalBlack === initialBlackCheckers && blackOnBoard === 0) winner = 'BLACK';
 
     // Move all handler and helper function definitions above the return statement and before any JSX usage
     // 1. Define handleDragOver
