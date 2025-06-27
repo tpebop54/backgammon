@@ -143,6 +143,7 @@ const BackgammonBoard: React.FC = () => {
                                 }
                             }
                             const exact = (from + 1) === dice;
+                            // Only allow bearing off with a higher die if no checkers on lower points
                             if (exact || (!fartherCheckerExists && dice > (from + 1))) {
                                 moves.push({ from, to: -2, dice });
                             }
@@ -155,6 +156,7 @@ const BackgammonBoard: React.FC = () => {
                                 }
                             }
                             const exact = (24 - from) === dice;
+                            // Only allow bearing off with a higher die if no checkers on higher points
                             if (exact || (!fartherCheckerExists && dice > (24 - from))) {
                                 moves.push({ from, to: -2, dice });
                             }
