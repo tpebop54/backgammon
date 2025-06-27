@@ -7,16 +7,6 @@ import Home from './Home';
 import Dice from './Dice';
 import Controls from './Controls';
 
-interface DebugEvent {
-    [key: string]: any;
-}
-
-// Add onContextMenu={onDebug} to make an element right clickable to open the debugger
-const onDebug = (evt: DebugEvent): void => {
-    console.log(evt);
-    debugger;
-};
-
 // Game state type definitions
 type Player = 'white' | 'black';
 type GameState = {
