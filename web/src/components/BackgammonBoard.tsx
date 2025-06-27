@@ -64,6 +64,15 @@ const BackgammonBoard: React.FC = () => {
     // Add pending state for moves
     const [pendingGameState, setPendingGameState] = useState<GameState | null>(null);
     const [turnStartState, setTurnStartState] = useState<GameState | null>(null);
+    // Track initial checker counts for win detection
+    const [initialWhiteCheckers, setInitialWhiteCheckers] = useState(() => {
+        return initialGameState.board.reduce((sum, n) => sum + (n > 0 ? n : 0), 0) + initialGameState.bar.white + initialGameState.home.white;
+    });
+    const [initialBlackCheckers, setInitialBlackCheckers] = useState(() => {
+        return initialGameState.board.reduce((sum, n) => sum + (n < 0 ? -n : 0), 0) + initialGameState.bar.black + initialGameState.home.black;
+    });
+    // Add winner state
+    const [winner, setWinner] = useState<string | null>(null);
 
     // Handler and helper function declarations must come before their usage
     // Move all handler and helper function declarations above any usage in render or other handlers
@@ -194,6 +203,19 @@ const BackgammonBoard: React.FC = () => {
         );
     };
 
+    // Add a helper to reset the game and initial checker counts
+    const resetGame = (newInitialState: GameState) => {
+        setGameState(newInitialState);
+        setPendingGameState(null);
+        setTurnStartState(null);
+        setInitialWhiteCheckers(
+            newInitialState.board.reduce((sum, n) => sum + (n > 0 ? n : 0), 0) + newInitialState.bar.white + newInitialState.home.white
+        );
+        setInitialBlackCheckers(
+            newInitialState.board.reduce((sum, n) => sum + (n < 0 ? -n : 0), 0) + newInitialState.bar.black + newInitialState.home.black
+        );
+    };
+
     // --- End handler and helper function declarations ---
 
     // Calculate possible moves on game state change
@@ -272,6 +294,31 @@ const BackgammonBoard: React.FC = () => {
         if (!pendingGameState) return;
         // Switch player and reset dice/usedDice
         const nextPlayer = pendingGameState.currentPlayer === 'white' ? 'black' : 'white';
+        // Calculate home and on-board for both players
+        const totalWhite = pendingGameState.home.white;
+        const totalBlack = pendingGameState.home.black;
+        const whiteOnBoard = pendingGameState.board.reduce((sum, n) => sum + (n > 0 ? n : 0), 0) + pendingGameState.bar.white;
+        const blackOnBoard = pendingGameState.board.reduce((sum, n) => sum + (n < 0 ? -n : 0), 0) + pendingGameState.bar.black;
+        if (totalWhite === initialWhiteCheckers && whiteOnBoard === 0) {
+            setWinner('WHITE');
+            setGameState({
+                ...pendingGameState,
+                gamePhase: 'finished',
+            });
+            setPendingGameState(null);
+            setTurnStartState(null);
+            return;
+        }
+        if (totalBlack === initialBlackCheckers && blackOnBoard === 0) {
+            setWinner('BLACK');
+            setGameState({
+                ...pendingGameState,
+                gamePhase: 'finished',
+            });
+            setPendingGameState(null);
+            setTurnStartState(null);
+            return;
+        }
         setGameState({
             ...pendingGameState,
             currentPlayer: nextPlayer,
@@ -707,16 +754,38 @@ const BackgammonBoard: React.FC = () => {
         );
     };
 
-    // Dynamically determine checker count for each player from initialGameState
-    const initialWhiteCheckers = initialGameState.board.reduce((sum, n) => sum + (n > 0 ? n : 0), 0) + initialGameState.bar.white + initialGameState.home.white;
-    const initialBlackCheckers = initialGameState.board.reduce((sum, n) => sum + (n < 0 ? -n : 0), 0) + initialGameState.bar.black + initialGameState.home.black;
+    // Winner screen
+    if (winner) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-screen bg-amber-100">
+                <div className="w-full flex flex-col items-center mb-8">
+                    <div className="text-4xl font-bold text-green-700 mb-2">{winner} WINS!</div>
+                    <button
+                        onClick={() => window.location.reload()}
+                        className="px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xl font-bold shadow-lg"
+                    >
+                        Refresh Page
+                    </button>
+                </div>
+                <div className="text-6xl font-bold text-amber-900 mb-8">🎉</div>
+                <button
+                    onClick={() => resetGame(initialGameState)}
+                    className="px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xl"
+                >
+                    New Game
+                </button>
+            </div>
+        );
+    }
+
+    // Use the state variables for win detection
     const totalWhite = gameState.home.white;
     const totalBlack = gameState.home.black;
     const whiteOnBoard = gameState.board.reduce((sum, n) => sum + (n > 0 ? n : 0), 0) + gameState.bar.white;
     const blackOnBoard = gameState.board.reduce((sum, n) => sum + (n < 0 ? -n : 0), 0) + gameState.bar.black;
-    let winner: string | null = null;
-    if (totalWhite === initialWhiteCheckers && whiteOnBoard === 0) winner = 'WHITE';
-    if (totalBlack === initialBlackCheckers && blackOnBoard === 0) winner = 'BLACK';
+    let winnerCheck: string | null = null;
+    if (totalWhite === initialWhiteCheckers && whiteOnBoard === 0) winnerCheck = 'WHITE';
+    if (totalBlack === initialBlackCheckers && blackOnBoard === 0) winnerCheck = 'BLACK';
 
     // Move all handler and helper function definitions above the return statement and before any JSX usage
     // 1. Define handleDragOver
@@ -918,6 +987,28 @@ const BackgammonBoard: React.FC = () => {
                 )}
                 <div className="w-[128px]" /> {/* right padding for alignment */}
             </div>
+
+            {/* Winner Screen */}
+            {winner && (
+                <div className="flex flex-col items-center justify-center min-h-screen bg-amber-100">
+                    <div className="w-full flex flex-col items-center mb-8">
+                        <div className="text-4xl font-bold text-green-700 mb-2">{winner} WINS!</div>
+                        <button
+                            onClick={() => window.location.reload()}
+                            className="px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xl font-bold shadow-lg"
+                        >
+                            Refresh Page
+                        </button>
+                    </div>
+                    <div className="text-6xl font-bold text-amber-900 mb-8">🎉</div>
+                    <button
+                        onClick={() => resetGame(initialGameState)}
+                        className="px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xl"
+                    >
+                        New Game
+                    </button>
+                </div>
+            )}
         </div>
     );
 };
