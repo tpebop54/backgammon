@@ -1,4 +1,5 @@
 import React from 'react';
+import PipCounter from './PipCounter'; // Pip counter display component
 
 interface HomeProps {
   player: 'white' | 'black';
@@ -37,17 +38,10 @@ const Home: React.FC<HomeProps> = ({
       onDragLeave={showDropZone ? handleDragLeave : undefined}
       onDrop={showDropZone ? (e) => handleHomeDrop(e, player) : undefined}
     >
-      {player === 'black' && (
-        <div className="absolute top-1 left-1 right-1 flex justify-center text-xs text-black bg-amber-200 rounded px-2 py-1 shadow font-mono">
-          {pipCount} pips
-        </div>
-      )}
+      {/* Pip counter at top for black, bottom for white */}
+      {player === 'black' && <PipCounter pipCount={pipCount} position="top" />}
       <div className="text-white text-2xl font-bold mb-2 mt-2 flex-1 flex items-center justify-center">{homeCount}</div>
-      {player === 'white' && (
-        <div className="absolute bottom-1 left-1 right-1 flex justify-center text-xs text-black bg-amber-200 rounded px-2 py-1 shadow font-mono">
-          {pipCount} pips
-        </div>
-      )}
+      {player === 'white' && <PipCounter pipCount={pipCount} position="bottom" />}
     </div>
   );
 };
