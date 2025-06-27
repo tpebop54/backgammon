@@ -135,6 +135,7 @@ const BackgammonBoard: React.FC = () => {
                         (state.currentPlayer === 'white' && from >= 0 && from <= 5 && to < 0) ||
                         (state.currentPlayer === 'black' && from >= 18 && from <= 23 && to >= 24)
                     )) {
+                        // Allow bearing off from the highest occupied point with a higher die (including doubles)
                         let fartherCheckerExists = false;
                         let isHighest = true;
                         if (state.currentPlayer === 'white') {
@@ -146,6 +147,7 @@ const BackgammonBoard: React.FC = () => {
                                 }
                             }
                             // Only allow bearing off with a higher die from the highest occupied point
+                            isHighest = true;
                             for (let i = from + 1; i <= 5; i++) {
                                 if (state.board[i] > 0) {
                                     isHighest = false;
@@ -153,6 +155,7 @@ const BackgammonBoard: React.FC = () => {
                                 }
                             }
                             const exact = (from + 1) === dice;
+                            // FIX: Allow bearing off with a higher die from the highest occupied point if no checkers on higher points
                             if (exact || (!fartherCheckerExists && isHighest && dice > (from + 1))) {
                                 moves.push({ from, to: -2, dice });
                             }
@@ -824,11 +827,23 @@ const BackgammonBoard: React.FC = () => {
         // Prevent any moves if all dice are used
         if (!effectiveState.dice || effectiveState.usedDice.every(u => u)) return;
 
-        const hasValidMoves = effectiveState.possibleMoves.some(move => move.from === pointIndex);
-        if (!hasValidMoves) return;
+        // Only consider moves using unused dice
+        const unusedDice = effectiveState.dice.filter((_, idx) => !effectiveState.usedDice[idx]);
+        const possibleMoves = effectiveState.possibleMoves.filter(move =>
+            move.from === pointIndex && unusedDice.includes(move.dice)
+        );
+        if (possibleMoves.length === 0) return;
 
         // Deselect if already selected
         if (selectedPoint === pointIndex) {
+            setSelectedPoint(null);
+            return;
+        }
+
+        // If only one possible move, auto-move
+        if (possibleMoves.length === 1) {
+            const move = possibleMoves[0];
+            makeMove(move.from, move.to, move.dice);
             setSelectedPoint(null);
             return;
         }
