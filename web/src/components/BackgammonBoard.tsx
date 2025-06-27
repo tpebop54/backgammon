@@ -26,11 +26,11 @@ type GameState = {
 };
 
 // Used for dev to test different scenarios.
-const finishingBoard = [
-    -2, 0, 0, 0, 0, 5,
-    0, 3, 0, 0, 0, -5,
-    5, 0, 0, 0, -3, 0,
-    -5, 0, 0, 0, 0, 2,
+const devBoard = [
+    -1, -1, 0, 0, 0, -1,  // 1-6
+    0, 0, 0, 0, 0, 0,     // 7-12
+    0, 0, 0, 0, 0, 0,     // 13-18
+    1, 0, 1, 0, 0, 1,     // 19-24
 ];
 
 //Setup for an actual backgammon game.
@@ -43,7 +43,7 @@ const defaultBoard = [
 
 // Initial checker locations
 const initialGameState: GameState = {
-    board: defaultBoard,
+    board: devBoard,
     bar: { white: 0, black: 0 },
     home: { white: 0, black: 0 },
     currentPlayer: 'white',
@@ -63,7 +63,9 @@ const BackgammonBoard: React.FC = () => {
     const [draggingCheckerIndex, setDraggingCheckerIndex] = useState<number | null>(null);
 
     // Helper function to check if a player can bear off
+    // TODO: this gets called way too much.
     const canBearOff = (player: Player, board: number[]): boolean => {
+        console.log('canBearOff');
         const homeBoard = player === 'white' ? [0, 1, 2, 3, 4, 5] : [18, 19, 20, 21, 22, 23];
 
         // Check if all pieces are in home board or already borne off
