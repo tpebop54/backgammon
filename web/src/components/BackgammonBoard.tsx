@@ -41,7 +41,7 @@ const defaultBoard = [
     -5, 0, 0, 0, 0, 2,    // 19-24: 3 black on 17, 5 black on 19, 2 white on 24
 ];
 
-const freshBoard = devBoard;
+const freshBoard = defaultBoard;
 
 // Initial checker locations
 const initialGameState: GameState = {
@@ -996,8 +996,8 @@ const BackgammonBoard: React.FC = () => {
                         </button>
                         <button
                             onClick={handleConfirmMoves}
-                            className={`px-6 py-2 rounded-lg text-white text-lg font-bold shadow ${pendingGameState && JSON.stringify(effectiveState) !== JSON.stringify(turnStartState) && effectiveState.usedDice.some(u => u) ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-400 cursor-not-allowed'}`}
-                            disabled={!(pendingGameState && JSON.stringify(effectiveState) !== JSON.stringify(turnStartState) && effectiveState.usedDice.some(u => u))}
+                            className={`px-6 py-2 rounded-lg text-white text-lg font-bold shadow ${pendingGameState && JSON.stringify(effectiveState) !== JSON.stringify(turnStartState) && effectiveState.usedDice.every(u => u) ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-400 cursor-not-allowed'}`}
+                            disabled={!(pendingGameState && JSON.stringify(effectiveState) !== JSON.stringify(turnStartState) && effectiveState.usedDice.every(u => u))}
                         >
                             Confirm Moves
                         </button>
