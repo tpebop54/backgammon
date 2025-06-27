@@ -574,49 +574,69 @@ const BackgammonBoard: React.FC = () => {
             );
         }
 
-        // Create piece elements with proper spacing
+        // Create piece elements with proper spacing and alignment
         const pieceElements = [];
         const maxVisible = 5;
         const actualVisible = Math.min(absCount, maxVisible);
-
+        const availableHeight = 160; // px
+        const checkerSize = 32; // px
+        let overlap = 0;
+        if (actualVisible > 1) {
+            const neededHeight = checkerSize * actualVisible;
+            if (neededHeight > availableHeight) {
+                overlap = (neededHeight - availableHeight) / (actualVisible - 1);
+            } else {
+                overlap = 0;
+            }
+        }
         for (let i = 0; i < actualVisible; i++) {
-            const isTopPiece = i === actualVisible - 1;
-            // All checkers are visually draggable
             const isBeingDragged = canDrag && draggingPointIndex === pointIndex && draggingCheckerIndex === i;
+            // For top row, stack from top edge; for bottom row, stack from bottom edge
+            const pos = isTopRow
+                ? i * (checkerSize - overlap)
+                : i * (checkerSize - overlap);
             pieceElements.push(
                 <div
                     key={i}
                     draggable={canDrag}
                     onDragStart={(e) => handleDragStart(e, pointIndex, i)}
                     onDragEnd={handleDragEnd}
-                    className={`w-8 h-8 rounded-full border-2 ${player === 'white'
+                    className={`absolute left-1/2 -translate-x-1/2 w-8 h-8 rounded-full border-2 ${player === 'white'
                         ? 'bg-white border-gray-800'
                         : 'bg-gray-800 border-white'
                         } select-none transition-transform ${canDrag ? 'cursor-move hover:scale-110 z-10' : 'cursor-pointer'} ${isBeingDragged ? 'invisible' : ''}`}
                     style={{
                         userSelect: 'none',
-                        marginTop: i === 0 ? '0' : '-4px'
+                        height: checkerSize,
+                        width: checkerSize,
+                        top: isTopRow ? pos : undefined,
+                        bottom: !isTopRow ? pos : undefined
                     }}
                 />
             );
         }
-
         // Add overflow indicator if more than 5 pieces
         if (absCount > maxVisible) {
+            const i = actualVisible;
+            const pos = isTopRow
+                ? i * (checkerSize - overlap)
+                : i * (checkerSize - overlap);
             pieceElements.push(
                 <div
                     key={`overflow-${pointIndex}`}
                     draggable={canDrag}
                     onDragStart={(e) => handleDragStart(e, pointIndex, actualVisible)}
                     onDragEnd={handleDragEnd}
-                    className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold ${player === 'white'
+                    className={`absolute left-1/2 -translate-x-1/2 w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold ${player === 'white'
                         ? 'bg-white border-gray-800 text-gray-800'
                         : 'bg-gray-800 border-white text-white'
-                        } select-none transition-transform ${canDrag ? 'cursor-move hover:scale-110 z-10' : 'cursor-pointer'
-                        }`}
+                        } select-none transition-transform ${canDrag ? 'cursor-move hover:scale-110 z-10' : 'cursor-pointer'}`}
                     style={{
                         userSelect: 'none',
-                        marginTop: '-4px'
+                        height: checkerSize,
+                        width: checkerSize,
+                        top: isTopRow ? pos : undefined,
+                        bottom: !isTopRow ? pos : undefined
                     }}
                 >
                     +{absCount - maxVisible}
@@ -629,13 +649,14 @@ const BackgammonBoard: React.FC = () => {
                 key={`point-${pointIndex}`}
                 className={`w-12 h-40 ${pointIndex % 2 === 0 ? 'bg-amber-600' : 'bg-amber-800'
                     } ${isTopRow ? 'flex flex-col' : 'flex flex-col-reverse'
-                    } items-center justify-start p-1 cursor-pointer hover:bg-yellow-400 transition-colors ${highlight}`}
+                    } items-center justify-start p-1 cursor-pointer hover:bg-yellow-400 transition-colors ${highlight} relative`}
                 onClick={() => handlePointClick(pointIndex)}
                 onDragOver={(e) => handleDragOver(e, pointIndex)}
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, pointIndex)}
+                style={{ overflow: 'hidden' }}
             >
-                <div className={`flex flex-col items-center ${isTopRow ? '' : 'flex-col-reverse'}`}>
+                <div style={{ position: 'relative', width: checkerSize, height: availableHeight }}>
                     {pieceElements}
                 </div>
                 {/* No label here */}
