@@ -888,7 +888,7 @@ const BackgammonBoard: React.FC = () => {
                     </div>
 
                     {/* Board */}
-                    <div className="border-4 border-amber-900 bg-amber-200 p-4 shadow-2xl relative h-[600px] overflow-hidden">
+                    <div className="border-4 border-amber-900 bg-amber-200 p-4 shadow-2xl relative overflow-hidden">
                         {/* Dice overlay on board, centered vertically and horizontally on player's half */}
                         {effectiveState.dice && (
                             <div
