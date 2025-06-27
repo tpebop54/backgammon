@@ -902,6 +902,7 @@ const BackgammonBoard: React.FC = () => {
                             gamePhase={effectiveState.gamePhase}
                             handleBarDragStart={handleBarDragStart}
                             handleDragEnd={handleDragEnd}
+                            side="top"
                         />
                         {Array.from({ length: 6 }, (_, i) => renderPoint(18 + i, true))}
                         {renderHome('black')}
@@ -917,6 +918,7 @@ const BackgammonBoard: React.FC = () => {
                             gamePhase={effectiveState.gamePhase}
                             handleBarDragStart={handleBarDragStart}
                             handleDragEnd={handleDragEnd}
+                            side="bottom"
                         />
                         {Array.from({ length: 6 }, (_, i) => renderPoint(5 - i, false))}
                         {renderHome('white')}
