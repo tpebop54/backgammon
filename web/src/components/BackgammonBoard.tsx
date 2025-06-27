@@ -835,9 +835,9 @@ const BackgammonBoard: React.FC = () => {
             />
 
             {/* Consistent height container for winner and board */}
-            <div className="w-full flex flex-col items-center justify-center min-h-[700px]">
+            <div className="w-full flex flex-col items-center justify-center h-[700px] overflow-hidden relative">
                 {winner ? (
-                    <div className="flex flex-col items-center justify-center w-full h-full">
+                    <div className="absolute inset-0 flex flex-col items-center justify-center w-full h-full bg-amber-100 z-30">
                         <div className="text-6xl font-bold text-amber-900 mb-8">🎉</div>
                         <div className="text-3xl font-bold text-amber-900 mb-4">{winner} wins!</div>
                         <button
@@ -888,7 +888,7 @@ const BackgammonBoard: React.FC = () => {
                     </div>
 
                     {/* Board */}
-                    <div className="border-4 border-amber-900 bg-amber-200 p-4 shadow-2xl relative">
+                    <div className="border-4 border-amber-900 bg-amber-200 p-4 shadow-2xl relative h-[600px] overflow-hidden">
                         {/* Dice overlay on board, centered vertically and horizontally on player's half */}
                         {effectiveState.dice && (
                             <div
