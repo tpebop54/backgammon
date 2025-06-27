@@ -232,6 +232,13 @@ const BackgammonBoard: React.FC = () => {
 
     // --- End handler and helper function declarations ---
 
+    // Automatically roll dice at the start of each player's turn
+    useEffect(() => {
+        if (gameState.gamePhase === 'setup' && !winner) {
+            rollDice();
+        }
+    }, [gameState.gamePhase, winner]);
+
     // Calculate possible moves on game state change
     useEffect(() => {
         const state = pendingGameState || gameState;
@@ -517,20 +524,22 @@ const BackgammonBoard: React.FC = () => {
     const handlePointClick = (pointIndex: number) => {
         // Prevent any moves if all dice are used
         if (!effectiveState.dice || effectiveState.usedDice.every(u => u)) return;
-
         if (effectiveState.gamePhase !== 'playing' || !effectiveState.dice) return;
-
         const pieces = effectiveState.board[pointIndex];
         const isCurrentPlayerPiece = (effectiveState.currentPlayer === 'white' && pieces > 0) ||
             (effectiveState.currentPlayer === 'black' && pieces < 0);
-
-        // If clicking on current player's piece, select it
-        if (isCurrentPlayerPiece && selectedPoint !== pointIndex) {
-            // Check if there is only one possible move for this checker
+        // If clicking on current player's piece, auto-move to home if possible, else largest die
+        if (isCurrentPlayerPiece) {
             const movesForThisChecker = effectiveState.possibleMoves.filter(move => move.from === pointIndex);
-            if (movesForThisChecker.length === 1) {
-                // Only one move, make it automatically
-                const move = movesForThisChecker[0];
+            if (movesForThisChecker.length > 0) {
+                // Prefer bear-off move if available
+                const bearOffMove = movesForThisChecker.find(move => move.to === -2);
+                if (bearOffMove) {
+                    makeMove(bearOffMove.from, bearOffMove.to, bearOffMove.dice);
+                    return;
+                }
+                // Otherwise, pick the move with the largest die
+                const move = movesForThisChecker.reduce((max, curr) => curr.dice > max.dice ? curr : max, movesForThisChecker[0]);
                 makeMove(move.from, move.to, move.dice);
                 return;
             }
@@ -865,16 +874,6 @@ const BackgammonBoard: React.FC = () => {
                         <div className="text-red-600 font-bold mt-2">No moves available!</div>
                     )}
                 </div>
-
-                {/* Dice Roll Button */}
-                {!effectiveState.dice && (
-                    <button
-                        onClick={rollDice}
-                        className="mb-6 px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xl font-bold shadow-lg"
-                    >
-                        Roll Dice
-                    </button>
-                )}
 
                 {/* Undo/Confirm Buttons */}
                 {effectiveState.dice && (
