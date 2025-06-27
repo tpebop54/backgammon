@@ -27,10 +27,10 @@ type GameState = {
 
 // Used for dev to test different scenarios.
 const devBoard = [
-    -1, -1, 0, 0, 0, -1,  // 1-6
+    1, 1, 0, 0, 0, 1,  // 1-6
     0, 0, 0, 0, 0, 0,     // 7-12
     0, 0, 0, 0, 0, 0,     // 13-18
-    1, 0, 1, 0, 0, 1,     // 19-24
+    -1, 0, -1, 0, 0, -1,     // 19-24
 ];
 
 //Setup for an actual backgammon game.
@@ -671,26 +671,18 @@ const BackgammonBoard: React.FC = () => {
 
     // Render the home area for a player
     const renderHome = (player: Player) => {
-        const canBearOffNow = canBearOff(gameState.currentPlayer, gameState.board) &&
-            gameState.currentPlayer === player &&
-            (selectedPoint !== null && selectedPoint >= 0 || draggedPiece);
+        // Allow drop if bearing off is possible and there is at least one valid bear-off move
+        const canBearOffNow = canBearOff(gameState.currentPlayer, gameState.board) && gameState.currentPlayer === player;
         const hasValidBearOffMoves = gameState.possibleMoves.some(move => move.to === -2);
         const showDropZone = canBearOffNow && hasValidBearOffMoves;
         const isBeingDraggedOver = dragOverPoint === -2;
 
         return (
             <div
-                className={`w-16 h-40 bg-green-600 flex flex-col items-center justify-center gap-2 transition-colors ${showDropZone ? 'hover:bg-green-500 cursor-pointer ring-2 ring-green-400 bg-green-100' : ''
-                    } ${isBeingDraggedOver ? 'ring-4 ring-purple-400 bg-purple-100' : ''}`}
-                onClick={canBearOffNow ? handleBearOff : undefined}
-                onDragOver={showDropZone ? (e) => {
-                    handleDragOver(e, -2);
-                    setDragOverPoint(-2);
-                } : undefined}
-                onDragLeave={showDropZone ? (e) => {
-                    handleDragLeave(e);
-                    setDragOverPoint(null);
-                } : undefined}
+                className={`w-16 h-40 bg-green-600 flex flex-col items-center justify-center gap-2 transition-colors ${showDropZone ? 'hover:bg-green-500 cursor-pointer ring-2 ring-green-400 bg-green-100' : ''} ${isBeingDraggedOver ? 'ring-4 ring-purple-400 bg-purple-100' : ''}`}
+                onClick={showDropZone ? handleBearOff : undefined}
+                onDragOver={showDropZone ? (e) => { handleDragOver(e, -2); setDragOverPoint(-2); } : undefined}
+                onDragLeave={showDropZone ? (e) => { handleDragLeave(e); setDragOverPoint(null); } : undefined}
                 onDrop={showDropZone ? (e) => handleHomeDrop(e, player) : undefined}
             >
                 <div className="text-white text-xs font-bold">HOME</div>
@@ -836,7 +828,7 @@ const BackgammonBoard: React.FC = () => {
                     {Array.from({ length: 6 }, (_, i) => renderPoint(12 + i, true))}
                     {renderBar()}
                     {Array.from({ length: 6 }, (_, i) => renderPoint(18 + i, true))}
-                    {renderHome('white')}
+                    {renderHome('black')}
                 </div>
 
                 {/* Bottom Row (Points 12-1) */}
@@ -844,7 +836,7 @@ const BackgammonBoard: React.FC = () => {
                     {Array.from({ length: 6 }, (_, i) => renderPoint(11 - i, false))}
                     {renderBar()}
                     {Array.from({ length: 6 }, (_, i) => renderPoint(5 - i, false))}
-                    {renderHome('black')}
+                    {renderHome('white')}
                 </div>
 
                 {/* Bottom Labels (Points 12-1) */}
