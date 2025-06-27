@@ -37,10 +37,17 @@ const Home: React.FC<HomeProps> = ({
       onDragLeave={showDropZone ? handleDragLeave : undefined}
       onDrop={showDropZone ? (e) => handleHomeDrop(e, player) : undefined}
     >
-      <div className="text-white text-2xl font-bold mb-2">{homeCount}</div>
-      <div className="absolute right-1 top-1 text-xs text-white bg-amber-700 rounded px-2 py-1 shadow font-mono" style={{writingMode:'vertical-lr',transform:'rotate(180deg)'}}>
-        {pipCount} pips
-      </div>
+      {player === 'black' && (
+        <div className="absolute top-1 left-1 right-1 flex justify-center text-xs text-black bg-amber-200 rounded px-2 py-1 shadow font-mono">
+          {pipCount} pips
+        </div>
+      )}
+      <div className="text-white text-2xl font-bold mb-2 mt-2 flex-1 flex items-center justify-center">{homeCount}</div>
+      {player === 'white' && (
+        <div className="absolute bottom-1 left-1 right-1 flex justify-center text-xs text-black bg-amber-200 rounded px-2 py-1 shadow font-mono">
+          {pipCount} pips
+        </div>
+      )}
     </div>
   );
 };
