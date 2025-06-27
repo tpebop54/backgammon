@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 
 interface DebugEvent {
     [key: string]: any;
@@ -69,76 +69,57 @@ const BackgammonBoard: React.FC = () => {
     // Move all handler and helper function declarations above any usage in render or other handlers
 
     // --- Handler and helper function declarations ---
-    // Helper function to check if a player can bear off
-    // TODO: this gets called way too much.
-    const canBearOff = (player: Player, board: number[]): boolean => {
-        console.log('canBearOff');
+    // Memoize canBearOff to avoid unnecessary re-creation
+    const canBearOff = useCallback((player: Player, board: number[]): boolean => {
+        // console.log('canBearOff'); // Remove or comment out debug log
         const homeBoard = player === 'white' ? [0, 1, 2, 3, 4, 5] : [18, 19, 20, 21, 22, 23];
-
-        // Check if all pieces are in home board or already borne off
         for (let i = 0; i < 24; i++) {
             const pieces = board[i];
             const hasPlayerPiece = (player === 'white' && pieces > 0) || (player === 'black' && pieces < 0);
-
             if (hasPlayerPiece && !homeBoard.includes(i)) {
                 return false;
             }
         }
-
         return true;
-    };
+    }, []); // No dependencies, pure function
 
-    // Calculate all possible moves for the current player
+    // Memoize calculatePossibleMoves to avoid unnecessary re-creation
     const calculatePossibleMoves = useCallback((state: GameState): Array<{ from: number; to: number; dice: number }> => {
         const moves: Array<{ from: number; to: number; dice: number }> = [];
-
         if (!state.dice || state.gamePhase !== 'playing') return moves;
-
         const availableDice = state.dice.filter((_, index) => !state.usedDice[index]);
         const direction = state.currentPlayer === 'white' ? -1 : 1;
         const canBearOffNow = canBearOff(state.currentPlayer, state.board);
-
-        // Check if player has pieces on the bar that must be moved first
         const hasBarPieces = state.bar[state.currentPlayer] > 0;
-
         if (hasBarPieces) {
-            // Must move from bar first
             availableDice.forEach(dice => {
                 let targetPoint: number;
                 if (state.currentPlayer === 'white') {
-                    targetPoint = 24 - dice; // white enters on 24,23,22,21,20,19 (indices 23..18)
+                    targetPoint = 24 - dice;
                 } else {
-                    targetPoint = dice - 1; // black enters on 1,2,3,4,5,6 (indices 0..5)
+                    targetPoint = dice - 1;
                 }
                 if (targetPoint >= 0 && targetPoint < 24) {
                     const targetPieces = state.board[targetPoint];
                     const isBlocked = (state.currentPlayer === 'white' && targetPieces < -1) ||
                         (state.currentPlayer === 'black' && targetPieces > 1);
                     if (!isBlocked) {
-                        moves.push({ from: -1, to: targetPoint, dice }); // -1 represents bar
+                        moves.push({ from: -1, to: targetPoint, dice });
                     }
                 }
             });
         } else {
-            // Normal moves
             for (let from = 0; from < 24; from++) {
                 const pieces = state.board[from];
                 const isCurrentPlayerPiece = (state.currentPlayer === 'white' && pieces > 0) ||
                     (state.currentPlayer === 'black' && pieces < 0);
-
                 if (!isCurrentPlayerPiece) continue;
-
                 availableDice.forEach(dice => {
                     let to = from + (dice * direction);
-
-                    // Check for bearing off
                     if (canBearOffNow && ((state.currentPlayer === 'white' && to < 0) ||
                         (state.currentPlayer === 'black' && to >= 24))) {
-                        // Only allow bearing off if no checker is on a higher point
-                        // or if the die matches the exact distance
                         let higherPointExists = false;
                         if (state.currentPlayer === 'white') {
-                            // Check for checkers on higher points (indices > from)
                             for (let i = from + 1; i < 6; i++) {
                                 if (state.board[i] > 0) {
                                     higherPointExists = true;
@@ -150,27 +131,23 @@ const BackgammonBoard: React.FC = () => {
                                 moves.push({ from, to: -2, dice });
                             }
                         } else {
-                          // Check for checkers on higher points (indices < from)
-                          for (let i = from - 1; i >= 18; i--) {
-                            if (state.board[i] < 0) {
-                              higherPointExists = true;
-                              break;
+                            for (let i = from - 1; i >= 18; i--) {
+                                if (state.board[i] < 0) {
+                                    higherPointExists = true;
+                                    break;
+                                }
                             }
-                          }
-                          const exact = (24 - from) === dice;
-                          if (exact || (!higherPointExists && (24 - from) < dice)) {
-                            moves.push({ from, to: -2, dice });
-                          }
+                            const exact = (24 - from) === dice;
+                            if (exact || (!higherPointExists && (24 - from) < dice)) {
+                                moves.push({ from, to: -2, dice });
+                            }
                         }
                         return;
                     }
-
-                    // Normal move
                     if (to >= 0 && to < 24) {
                         const targetPieces = state.board[to];
                         const isBlocked = (state.currentPlayer === 'white' && targetPieces < -1) ||
                             (state.currentPlayer === 'black' && targetPieces > 1);
-
                         if (!isBlocked) {
                             moves.push({ from, to, dice });
                         }
@@ -178,9 +155,8 @@ const BackgammonBoard: React.FC = () => {
                 });
             }
         }
-
         return moves;
-    }, []);
+    }, [canBearOff]);
 
     // On dice roll, set up pending state and turn start state
     const rollDice = () => {
@@ -213,24 +189,19 @@ const BackgammonBoard: React.FC = () => {
 
     // --- End handler and helper function declarations ---
 
-    // Calculate possible moves on game state change
+    // Calculate possible moves on game state change (single effect only)
     useEffect(() => {
-        if (pendingGameState) {
-            setPendingGameState(prev => prev ? { ...prev, possibleMoves: calculatePossibleMoves(prev) } : null);
-        } else {
-            setGameState(prev => ({ ...prev, possibleMoves: calculatePossibleMoves(prev) }));
+        const state = pendingGameState || gameState;
+        const newMoves = calculatePossibleMoves(state);
+        if (JSON.stringify(state.possibleMoves) !== JSON.stringify(newMoves)) {
+            if (pendingGameState) {
+                setPendingGameState(prev => prev ? { ...prev, possibleMoves: newMoves } : null);
+            } else {
+                setGameState(prev => ({ ...prev, possibleMoves: newMoves }));
+            }
         }
-    }, [gameState.dice, gameState.usedDice, gameState.bar, gameState.home, gameState.currentPlayer, pendingGameState, calculatePossibleMoves]);
-
-    // Update pending game state on every move
-    useEffect(() => {
-        if (pendingGameState) {
-            setPendingGameState(prev => ({
-                ...prev!,
-                possibleMoves: calculatePossibleMoves(prev!)
-            }));
-        }
-    }, [pendingGameState, calculatePossibleMoves]);
+        // Only update if possibleMoves actually changed
+    }, [pendingGameState, gameState, calculatePossibleMoves]);
 
     // Handler for making a move
     const makeMove = (from: number, to: number, dice: number, checkerIndex: number | null = null) => {
