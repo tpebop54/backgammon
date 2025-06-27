@@ -665,6 +665,7 @@ const BackgammonBoard: React.FC = () => {
                 <div
                     key={i}
                     draggable={canDrag}
+                    onClick={() => handlePointClick(pointIndex)}
                     onDragStart={(e) => handleDragStart(e, pointIndex, i)}
                     onDragEnd={handleDragEnd}
                     className={`absolute left-1/2 -translate-x-1/2 w-8 h-8 rounded-full border-2 ${player === 'white'
@@ -690,6 +691,7 @@ const BackgammonBoard: React.FC = () => {
                 <div
                     key={`overflow-${pointIndex}`}
                     draggable={canDrag}
+                    onClick={() => handlePointClick(pointIndex)}
                     onDragStart={(e) => handleDragStart(e, pointIndex, i)}
                     onDragEnd={handleDragEnd}
                     className={`absolute left-1/2 -translate-x-1/2 w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold ${player === 'white'
