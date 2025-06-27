@@ -52,17 +52,24 @@ io.on('connection', (socket) => {
     if (playerAssignments[roomId].black && !room.has(playerAssignments[roomId].black)) {
       playerAssignments[roomId].black = undefined;
     }
+    // Debug logging
+    console.log(`Room ${roomId} sockets:`, Array.from(room));
+    console.log(`Current assignments:`, playerAssignments[roomId]);
     let assignedColor;
-    if (!playerAssignments[roomId].white) {
+    if (playerAssignments[roomId].white === socket.id) {
+      assignedColor = 'white';
+    } else if (playerAssignments[roomId].black === socket.id) {
+      assignedColor = 'black';
+    } else if (!playerAssignments[roomId].white) {
       playerAssignments[roomId].white = socket.id;
       assignedColor = 'white';
     } else if (!playerAssignments[roomId].black) {
       playerAssignments[roomId].black = socket.id;
       assignedColor = 'black';
     } else {
-      // More than 2 players: assign as spectator (null)
       assignedColor = null;
     }
+    console.log(`Assigning color to socket ${socket.id}:`, assignedColor);
     socket.emit('playerAssignment', { color: assignedColor });
     socket.emit('gameState', games[roomId]);
     socket.to(roomId).emit('playerJoined');
