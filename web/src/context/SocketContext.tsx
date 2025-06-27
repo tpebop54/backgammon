@@ -16,7 +16,7 @@ export type GameState = {
 
 interface SocketContextType {
   gameState: GameState | null;
-  sendMove: (newState: GameState) => void;
+  sendMove: (move: { from: number; to: number; dice: number }) => void;
   resetGame: () => void;
   joinRoom: (roomId: string) => void;
   connected: boolean;
@@ -58,9 +58,10 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  const sendMove = (newState: GameState) => {
+  // Accepts a move object, not a full GameState
+  const sendMove = (move: { from: number; to: number; dice: number }) => {
     if (socketRef.current) {
-      socketRef.current.emit('makeMove', { roomId: roomRef.current, newState });
+      socketRef.current.emit('makeMove', { roomId: roomRef.current, move });
     }
   };
 
