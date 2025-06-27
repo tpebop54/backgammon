@@ -250,10 +250,16 @@ const BackgammonBoard: React.FC = () => {
 
     // --- End handler and helper function declarations ---
 
-    // Automatically roll dice at the start of each turn
+    // Automatically roll dice at the start of the first turn only
     useEffect(() => {
         const state = pendingGameState || gameState;
-        if (state.gamePhase === 'setup' && !state.dice && !winner) {
+        // Only roll dice if the game is in setup, no dice, no winner, and it's the very first turn
+        if (
+            state.gamePhase === 'setup' &&
+            !state.dice &&
+            !winner &&
+            !turnStartState // Only at very first game load
+        ) {
             rollDice();
         }
         // eslint-disable-next-line
@@ -381,7 +387,7 @@ const BackgammonBoard: React.FC = () => {
     // Confirm moves handler
     const handleConfirmMoves = () => {
         if (!pendingGameState) return;
-        // Switch player and reset dice/usedDice
+        // Switch player and roll dice for next turn immediately (no flicker)
         const nextPlayer = pendingGameState.currentPlayer === 'white' ? 'black' : 'white';
         // Calculate home and on-board for both players
         const totalWhite = pendingGameState.home.white;
@@ -408,16 +414,21 @@ const BackgammonBoard: React.FC = () => {
             setTurnStartState(null);
             return;
         }
-        setGameState({
+        // Roll dice for next player immediately
+        const dice1 = Math.floor(Math.random() * 6) + 1;
+        const dice2 = Math.floor(Math.random() * 6) + 1;
+        const diceArray = dice1 === dice2 ? [dice1, dice1, dice1, dice1] : [dice1, dice2];
+        const nextState: GameState = {
             ...pendingGameState,
-            currentPlayer: nextPlayer,
-            dice: null,
-            usedDice: [false, false],
-            gamePhase: 'setup',
-            possibleMoves: []
-        });
+            currentPlayer: nextPlayer as Player,
+            dice: diceArray,
+            usedDice: new Array(diceArray.length).fill(false),
+            gamePhase: 'playing',
+            possibleMoves: [] // will be recalculated by useEffect
+        };
+        setGameState(nextState);
         setPendingGameState(null);
-        setTurnStartState(null);
+        setTurnStartState(nextState);
     };
 
     // In handleDragStart, use effectiveState
