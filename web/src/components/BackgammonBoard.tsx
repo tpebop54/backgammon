@@ -560,9 +560,7 @@ const BackgammonBoard: React.FC = () => {
                     onDragLeave={handleDragLeave}
                     onDrop={(e) => handleDrop(e, pointIndex)}
                 >
-                    <div className="text-xs text-white mt-auto font-bold">
-                        {pointIndex + 1}
-                    </div>
+                    {/* Checker area only, no label here */}
                 </div>
             );
         }
@@ -631,9 +629,7 @@ const BackgammonBoard: React.FC = () => {
                 <div className={`flex flex-col items-center ${isTopRow ? '' : 'flex-col-reverse'}`}>
                     {pieceElements}
                 </div>
-                <div className="text-xs text-white mt-auto font-bold">
-                    {pointIndex + 1}
-                </div>
+                {/* No label here */}
             </div>
         );
     };
@@ -755,6 +751,18 @@ const BackgammonBoard: React.FC = () => {
 
             {/* Board */}
             <div className="border-4 border-amber-900 bg-amber-200 p-4 shadow-2xl">
+                {/* Top Labels (Points 13-24) */}
+                <div className="flex gap-1 mb-1 items-end">
+                    {Array.from({ length: 6 }, (_, i) => (
+                        <div key={`label-top-${12 + i}`} className="w-12 text-center text-black font-bold text-xs">{13 + i}</div>
+                    ))}
+                    <div className="w-4 mx-1" /> {/* Bar placeholder */}
+                    {Array.from({ length: 6 }, (_, i) => (
+                        <div key={`label-top-${18 + i}`} className="w-12 text-center text-black font-bold text-xs">{19 + i}</div>
+                    ))}
+                    <div className="w-16" /> {/* Home placeholder */}
+                </div>
+
                 {/* Top Row (Points 13-24) */}
                 <div className="flex gap-1 mb-2 items-end">
                     {Array.from({ length: 6 }, (_, i) => renderPoint(12 + i, true))}
@@ -769,6 +777,18 @@ const BackgammonBoard: React.FC = () => {
                     {renderBar('black')}
                     {Array.from({ length: 6 }, (_, i) => renderPoint(5 - i, false))}
                     {renderHome('black')}
+                </div>
+
+                {/* Bottom Labels (Points 12-1) */}
+                <div className="flex gap-1 mt-1 items-start">
+                    {Array.from({ length: 6 }, (_, i) => (
+                        <div key={`label-bot-${11 - i}`} className="w-12 text-center text-black font-bold text-xs">{12 - i}</div>
+                    ))}
+                    <div className="w-4 mx-1" /> {/* Bar placeholder */}
+                    {Array.from({ length: 6 }, (_, i) => (
+                        <div key={`label-bot-${5 - i}`} className="w-12 text-center text-black font-bold text-xs">{6 - i}</div>
+                    ))}
+                    <div className="w-16" /> {/* Home placeholder */}
                 </div>
             </div>
         </div>
