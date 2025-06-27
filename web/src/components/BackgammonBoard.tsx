@@ -297,9 +297,32 @@ const BackgammonBoard: React.FC = () => {
         setDraggedPiece({ fromPoint: pointIndex, player });
         setSelectedPoint(pointIndex);
         e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', '');
-        
-        // Add visual feedback
+
+        // Create a custom drag image
+        const dragImage = document.createElement('div');
+        dragImage.style.width = '32px';
+        dragImage.style.height = '32px';
+        dragImage.style.borderRadius = '50%';
+        dragImage.style.border = '2px solid';
+        dragImage.style.position = 'absolute';
+        dragImage.style.top = '-1000px';
+
+        if (player === 'white') {
+            dragImage.style.backgroundColor = 'white';
+            dragImage.style.borderColor = '#1f2937';
+        } else {
+            dragImage.style.backgroundColor = '#1f2937';
+            dragImage.style.borderColor = 'white';
+        }
+
+        document.body.appendChild(dragImage);
+        e.dataTransfer.setDragImage(dragImage, 16, 16);
+
+        // Clean up drag image after a short delay
+        setTimeout(() => {
+            document.body.removeChild(dragImage);
+        }, 0);
+
         setInvalidDropFeedback(null);
     };
 
@@ -320,7 +343,7 @@ const BackgammonBoard: React.FC = () => {
         setSelectedPoint(-1);
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', '');
-        
+
         // Add visual feedback
         setInvalidDropFeedback(null);
     };
@@ -328,7 +351,7 @@ const BackgammonBoard: React.FC = () => {
     const handleDragOver = (e: React.DragEvent, pointIndex?: number) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
-        
+
         if (pointIndex !== undefined) {
             setDragOverPoint(pointIndex);
         }
@@ -462,28 +485,52 @@ const BackgammonBoard: React.FC = () => {
         const hasValidMoves = gameState.possibleMoves.some(move => move.from === pointIndex);
         const canDrag = isCurrentPlayerPiece && hasValidMoves && gameState.gamePhase === 'playing';
 
-        // Create piece elements - ALL pieces are draggable, not just the top one
+        // Only render pieces if there are any
+        if (absCount === 0) {
+            return (
+                <div
+                    className={`w-12 h-40 ${pointIndex % 2 === 0 ? 'bg-amber-600' : 'bg-amber-800'
+                        } ${isTopRow ? 'flex flex-col' : 'flex flex-col-reverse'
+                        } items-center justify-start p-1 cursor-pointer hover:bg-yellow-400 transition-colors ${highlight}`}
+                    onClick={() => handlePointClick(pointIndex)}
+                    onDragOver={(e) => handleDragOver(e, pointIndex)}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => handleDrop(e, pointIndex)}
+                >
+                    <div className="text-xs text-white mt-auto font-bold">
+                        {pointIndex + 1}
+                    </div>
+                </div>
+            );
+        }
+
+        // Create piece elements with proper spacing
         const pieceElements = [];
         const maxVisible = 5;
+        const actualVisible = Math.min(absCount, maxVisible);
 
-        for (let i = 0; i < Math.min(absCount, maxVisible); i++) {
+        for (let i = 0; i < actualVisible; i++) {
+            const isTopPiece = i === actualVisible - 1;
             pieceElements.push(
                 <div
                     key={i}
-                    draggable={canDrag}
-                    onDragStart={(e) => canDrag ? handleDragStart(e, pointIndex) : e.preventDefault()}
+                    draggable={canDrag && isTopPiece} // Only top piece is draggable
+                    onDragStart={(e) => canDrag && isTopPiece ? handleDragStart(e, pointIndex) : e.preventDefault()}
                     onDragEnd={handleDragEnd}
                     className={`w-8 h-8 rounded-full border-2 ${player === 'white'
                         ? 'bg-white border-gray-800'
                         : 'bg-gray-800 border-white'
-                        } select-none transition-transform ${canDrag ? 'cursor-move hover:scale-110' : 'cursor-pointer'
+                        } select-none transition-transform ${canDrag && isTopPiece ? 'cursor-move hover:scale-110 z-10' : 'cursor-pointer'
                         }`}
-                    style={{ userSelect: 'none' }}
+                    style={{
+                        userSelect: 'none',
+                        marginTop: i === 0 ? '0' : '-4px' // Overlap pieces slightly
+                    }}
                 />
             );
         }
 
-        // Add overflow indicator if more than 5 pieces - this is also draggable
+        // Add overflow indicator if more than 5 pieces
         if (absCount > maxVisible) {
             pieceElements.push(
                 <div
@@ -494,9 +541,12 @@ const BackgammonBoard: React.FC = () => {
                     className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold ${player === 'white'
                         ? 'bg-white border-gray-800 text-gray-800'
                         : 'bg-gray-800 border-white text-white'
-                        } select-none transition-transform ${canDrag ? 'cursor-move hover:scale-110' : 'cursor-pointer'
+                        } select-none transition-transform ${canDrag ? 'cursor-move hover:scale-110 z-10' : 'cursor-pointer'
                         }`}
-                    style={{ userSelect: 'none' }}
+                    style={{
+                        userSelect: 'none',
+                        marginTop: '-4px'
+                    }}
                 >
                     +{absCount - maxVisible}
                 </div>
@@ -513,7 +563,7 @@ const BackgammonBoard: React.FC = () => {
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, pointIndex)}
             >
-                <div className="flex flex-col items-center gap-1">
+                <div className={`flex flex-col items-center ${isTopRow ? '' : 'flex-col-reverse'}`}>
                     {pieceElements}
                 </div>
                 <div className="text-xs text-white mt-auto font-bold">
@@ -584,9 +634,8 @@ const BackgammonBoard: React.FC = () => {
 
         return (
             <div
-                className={`w-16 h-40 bg-green-600 flex flex-col items-center justify-center gap-2 transition-colors ${
-                    showDropZone ? 'hover:bg-green-500 cursor-pointer ring-2 ring-green-400 bg-green-100' : ''
-                } ${isBeingDraggedOver ? 'ring-4 ring-purple-400 bg-purple-100' : ''}`}
+                className={`w-16 h-40 bg-green-600 flex flex-col items-center justify-center gap-2 transition-colors ${showDropZone ? 'hover:bg-green-500 cursor-pointer ring-2 ring-green-400 bg-green-100' : ''
+                    } ${isBeingDraggedOver ? 'ring-4 ring-purple-400 bg-purple-100' : ''}`}
                 onClick={canBearOffNow ? handleBearOff : undefined}
                 onDragOver={showDropZone ? (e) => {
                     handleDragOver(e, -2);
