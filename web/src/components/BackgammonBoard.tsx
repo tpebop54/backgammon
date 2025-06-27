@@ -27,10 +27,10 @@ type GameState = {
 
 // Used for dev to test different scenarios.
 const devBoard = [
-    1, 1, 0, 0, 0, 1,  // 1-6
+    1, 1, 1, 0, 0, 0,  // 1-6
     0, 0, 0, 0, 0, 0,     // 7-12
     0, 0, 0, 0, 0, 0,     // 13-18
-    -1, 0, -1, 0, 0, -1,     // 19-24
+    -1, -1, -1, 0, 0, 0,     // 19-24
 ];
 
 //Setup for an actual backgammon game.
@@ -41,9 +41,11 @@ const defaultBoard = [
     -5, 0, 0, 0, 0, 2,    // 19-24: 3 black on 17, 5 black on 19, 2 white on 24
 ];
 
+const freshBoard = devBoard;
+
 // Initial checker locations
 const initialGameState: GameState = {
-    board: devBoard,
+    board: freshBoard,
     bar: { white: 0, black: 0 },
     home: { white: 0, black: 0 },
     currentPlayer: 'white',
@@ -134,6 +136,7 @@ const BackgammonBoard: React.FC = () => {
                         (state.currentPlayer === 'black' && from >= 18 && from <= 23 && to >= 24)
                     )) {
                         let fartherCheckerExists = false;
+                        let isHighest = true;
                         if (state.currentPlayer === 'white') {
                             // For white, check for checkers on lower points (indices 0 to from-1)
                             for (let i = 0; i < from; i++) {
@@ -142,9 +145,15 @@ const BackgammonBoard: React.FC = () => {
                                     break;
                                 }
                             }
+                            // Only allow bearing off with a higher die from the highest occupied point
+                            for (let i = from + 1; i <= 5; i++) {
+                                if (state.board[i] > 0) {
+                                    isHighest = false;
+                                    break;
+                                }
+                            }
                             const exact = (from + 1) === dice;
-                            // Only allow bearing off with a higher die if no checkers on lower points
-                            if (exact || (!fartherCheckerExists && dice > (from + 1))) {
+                            if (exact || (!fartherCheckerExists && isHighest && dice > (from + 1))) {
                                 moves.push({ from, to: -2, dice });
                             }
                         } else {
@@ -155,9 +164,16 @@ const BackgammonBoard: React.FC = () => {
                                     break;
                                 }
                             }
+                            // Only allow bearing off with a higher die from the highest occupied point
+                            isHighest = true;
+                            for (let i = from - 1; i >= 18; i--) {
+                                if (state.board[i] < 0) {
+                                    isHighest = false;
+                                    break;
+                                }
+                            }
                             const exact = (24 - from) === dice;
-                            // Only allow bearing off with a higher die if no checkers on higher points
-                            if (exact || (!fartherCheckerExists && dice > (24 - from))) {
+                            if (exact || (!fartherCheckerExists && isHighest && dice > (24 - from))) {
                                 moves.push({ from, to: -2, dice });
                             }
                         }
@@ -223,7 +239,7 @@ const BackgammonBoard: React.FC = () => {
     const handleNewGame = () => {
         setWinner(null);
         resetGame({
-            board: [...defaultBoard],
+            board: [...freshBoard],
             bar: { white: 0, black: 0 },
             home: { white: 0, black: 0 },
             currentPlayer: 'white',
