@@ -127,7 +127,32 @@ const BackgammonBoard: React.FC = () => {
                     // Check for bearing off
                     if (canBearOffNow && ((state.currentPlayer === 'white' && to < 0) ||
                         (state.currentPlayer === 'black' && to >= 24))) {
-                        moves.push({ from, to: -2, dice }); // -2 represents home
+                        // Only allow bearing off if no checker is on a higher point
+                        // or if the die matches the exact distance
+                        let higherPointExists = false;
+                        if (state.currentPlayer === 'white') {
+                            for (let i = 0; i < from; i++) {
+                                if (state.board[i] > 0) {
+                                    higherPointExists = true;
+                                    break;
+                                }
+                            }
+                            const exact = (from + 1) === dice;
+                            if (exact || (!higherPointExists && (from + 1) < dice)) {
+                                moves.push({ from, to: -2, dice });
+                            }
+                        } else {
+                            for (let i = 23; i > from; i--) {
+                                if (state.board[i] < 0) {
+                                    higherPointExists = true;
+                                    break;
+                                }
+                            }
+                            const exact = (24 - from) === dice;
+                            if (exact || (!higherPointExists && (24 - from) < dice)) {
+                                moves.push({ from, to: -2, dice });
+                            }
+                        }
                         return;
                     }
 
@@ -671,11 +696,12 @@ const BackgammonBoard: React.FC = () => {
 
     // Render the home area for a player
     const renderHome = (player: Player) => {
-        // Allow drop if bearing off is possible and there is at least one valid bear-off move
+        // Only highlight if dragging a checker of the correct player and a valid bear-off move exists
+        const isDraggingOwnChecker = draggedPiece && draggedPiece.player === player;
         const canBearOffNow = canBearOff(gameState.currentPlayer, gameState.board) && gameState.currentPlayer === player;
-        const hasValidBearOffMoves = gameState.possibleMoves.some(move => move.to === -2);
-        const showDropZone = canBearOffNow && hasValidBearOffMoves;
-        const isBeingDraggedOver = dragOverPoint === -2;
+        const hasValidBearOffMoves = gameState.possibleMoves.some(move => move.to === -2 && (!draggedPiece || move.from === draggedPiece.fromPoint));
+        const showDropZone = isDraggingOwnChecker && canBearOffNow && hasValidBearOffMoves;
+        const isBeingDraggedOver = dragOverPoint === -2 && showDropZone;
 
         return (
             <div
