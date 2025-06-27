@@ -52,9 +52,6 @@ io.on('connection', (socket) => {
     if (playerAssignments[roomId].black && !room.has(playerAssignments[roomId].black)) {
       playerAssignments[roomId].black = undefined;
     }
-    // Debug logging
-    console.log(`Room ${roomId} sockets:`, Array.from(room));
-    console.log(`Current assignments:`, playerAssignments[roomId]);
     let assignedColor;
     if (playerAssignments[roomId].white === socket.id) {
       assignedColor = 'white';
@@ -69,7 +66,6 @@ io.on('connection', (socket) => {
     } else {
       assignedColor = null;
     }
-    console.log(`Assigning color to socket ${socket.id}:`, assignedColor);
     socket.emit('playerAssignment', { color: assignedColor });
     socket.emit('gameState', games[roomId]);
     socket.to(roomId).emit('playerJoined');
@@ -205,6 +201,19 @@ io.on('connection', (socket) => {
       }
     }
   });
+});
+
+// Add an endpoint to view current socket connections and assignments
+app.get('/connections', (req, res) => {
+  const rooms = {};
+  for (const [roomId, assignment] of Object.entries(playerAssignments)) {
+    const sockets = Array.from(io.sockets.adapter.rooms.get(roomId) || []);
+    rooms[roomId] = {
+      sockets,
+      assignments: assignment
+    };
+  }
+  res.json(rooms);
 });
 
 const PORT = process.env.PORT || 4000;
