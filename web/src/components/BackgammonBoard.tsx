@@ -89,13 +89,14 @@ const BackgammonBoard: React.FC = () => {
     const calculatePossibleMoves = useCallback((state: GameState): Array<{ from: number; to: number; dice: number }> => {
         const moves: Array<{ from: number; to: number; dice: number }> = [];
         if (!state.dice || state.gamePhase !== 'playing') return moves;
-        const availableDice = state.dice.filter((_, index) => !state.usedDice[index]);
+        // Use all dice, not just unused, to generate all possible moves
+        const diceList = state.dice;
         const direction = state.currentPlayer === 'white' ? -1 : 1;
         const canBearOffNow = canBearOff(state.currentPlayer, state.board);
         const hasBarPieces = state.bar[state.currentPlayer] > 0;
         if (hasBarPieces) {
-            for (let d = 0; d < availableDice.length; d++) {
-                const dice = availableDice[d];
+            for (let d = 0; d < diceList.length; d++) {
+                const dice = diceList[d];
                 let targetPoint: number;
                 if (state.currentPlayer === 'white') {
                     targetPoint = 24 - dice;
@@ -117,8 +118,8 @@ const BackgammonBoard: React.FC = () => {
                 const isCurrentPlayerPiece = (state.currentPlayer === 'white' && pieces > 0) ||
                     (state.currentPlayer === 'black' && pieces < 0);
                 if (!isCurrentPlayerPiece) continue;
-                for (let d = 0; d < availableDice.length; d++) {
-                    const dice = availableDice[d];
+                for (let d = 0; d < diceList.length; d++) {
+                    const dice = diceList[d];
                     let to = from + (dice * direction);
                     if (canBearOffNow && ((state.currentPlayer === 'white' && to < 0) ||
                         (state.currentPlayer === 'black' && to >= 24))) {
