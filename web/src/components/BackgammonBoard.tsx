@@ -506,13 +506,13 @@ const BackgammonBoard: React.FC = () => {
         const isCurrentPlayerPiece = (effectiveState.currentPlayer === 'white' && pieces > 0) ||
             (effectiveState.currentPlayer === 'black' && pieces < 0);
 
-        // If clicking on current player's piece, select it
-        if (isCurrentPlayerPiece && selectedPoint !== pointIndex) {
-            // Check if there is only one possible move for this checker
+        // If clicking on current player's piece, auto-move using the largest available die
+        if (isCurrentPlayerPiece) {
+            // Find all possible moves for this checker
             const movesForThisChecker = effectiveState.possibleMoves.filter(move => move.from === pointIndex);
-            if (movesForThisChecker.length === 1) {
-                // Only one move, make it automatically
-                const move = movesForThisChecker[0];
+            if (movesForThisChecker.length > 0) {
+                // Pick the move with the largest die
+                const move = movesForThisChecker.reduce((max, curr) => curr.dice > max.dice ? curr : max, movesForThisChecker[0]);
                 makeMove(move.from, move.to, move.dice);
                 return;
             }
@@ -788,15 +788,6 @@ const BackgammonBoard: React.FC = () => {
         <div className="flex flex-col items-center p-8 bg-amber-100 min-h-screen">
             {winner ? (
                 <div className="flex flex-col items-center justify-center min-h-screen bg-amber-100">
-                    <div className="w-full flex flex-col items-center mb-8">
-                        <div className="text-4xl font-bold text-green-700 mb-2">{winner} WINS!</div>
-                        <button
-                            onClick={() => window.location.reload()}
-                            className="px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xl font-bold shadow-lg"
-                        >
-                            Refresh Page
-                        </button>
-                    </div>
                     <div className="text-6xl font-bold text-amber-900 mb-8">🎉</div>
                     <button
                         onClick={() => resetGame(initialGameState)}
