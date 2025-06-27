@@ -239,45 +239,47 @@ const BackgammonBoard: React.FC = () => {
         const newUsedDice = [...state.usedDice];
         newUsedDice[diceIndex] = true;
 
-        // Switch player
-        const nextPlayer = player === 'white' ? 'black' : 'white';
-
-        setGameState({
+        // Do not switch player here; only after all dice are used and moves are confirmed
+        // Instead, keep currentPlayer the same
+        const newState: GameState = {
             ...state,
             board: newBoard,
             bar: newBar,
             home: newHome,
             usedDice: newUsedDice,
-            currentPlayer: nextPlayer,
+            // currentPlayer stays the same
             possibleMoves: calculatePossibleMoves({
                 ...state,
                 board: newBoard,
                 bar: newBar,
                 home: newHome,
                 usedDice: newUsedDice,
-                currentPlayer: nextPlayer
+                // currentPlayer stays the same
             })
-        });
-
-        // Reset pending state
-        setPendingGameState(null);
-        setTurnStartState(null);
+        };
+        setPendingGameState(newState);
     };
 
     // Undo handler
     const handleUndo = () => {
         if (!turnStartState) return;
-
-        setGameState(turnStartState);
-        setPendingGameState(null);
-        setTurnStartState(null);
+        setPendingGameState(turnStartState);
+        setTurnStartState(turnStartState);
     };
 
     // Confirm moves handler
     const handleConfirmMoves = () => {
         if (!pendingGameState) return;
-
-        setGameState(pendingGameState);
+        // Switch player and reset dice/usedDice
+        const nextPlayer = pendingGameState.currentPlayer === 'white' ? 'black' : 'white';
+        setGameState({
+            ...pendingGameState,
+            currentPlayer: nextPlayer,
+            dice: null,
+            usedDice: [false, false],
+            gamePhase: 'setup',
+            possibleMoves: []
+        });
         setPendingGameState(null);
         setTurnStartState(null);
     };
@@ -359,6 +361,9 @@ const BackgammonBoard: React.FC = () => {
         if (!dragData) {
             setDraggedPiece(null);
             setSelectedPoint(null);
+            setDragOverPoint(null);
+            setDraggingPointIndex(null);
+            setDraggingCheckerIndex(null);
             return;
         }
 
@@ -387,6 +392,9 @@ const BackgammonBoard: React.FC = () => {
 
         setDraggedPiece(null);
         setSelectedPoint(null);
+        setDragOverPoint(null);
+        setDraggingPointIndex(null);
+        setDraggingCheckerIndex(null);
     };
 
     // In handleHomeDrop, use effectiveState
@@ -410,6 +418,9 @@ const BackgammonBoard: React.FC = () => {
         if (!dragData || dragData.player !== player) {
             setDraggedPiece(null);
             setSelectedPoint(null);
+            setDragOverPoint(null);
+            setDraggingPointIndex(null);
+            setDraggingCheckerIndex(null);
             return;
         }
 
@@ -436,6 +447,9 @@ const BackgammonBoard: React.FC = () => {
 
         setDraggedPiece(null);
         setSelectedPoint(null);
+        setDragOverPoint(null);
+        setDraggingPointIndex(null);
+        setDraggingCheckerIndex(null);
     };
 
     // In handlePointClick, use effectiveState
