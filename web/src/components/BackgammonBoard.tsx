@@ -880,15 +880,35 @@ const BackgammonBoard: React.FC = () => {
                     <div className="flex gap-4 mb-4">
                         <button
                             onClick={handleUndo}
-                            className="px-6 py-2 bg-gray-400 text-white rounded-lg hover:bg-gray-500 transition-colors text-lg font-bold shadow"
+                            className={
+                                `px-6 py-2 rounded-lg transition-colors text-lg font-bold shadow ` +
+                                (!turnStartState || JSON.stringify(effectiveState) === JSON.stringify(turnStartState)
+                                    ? 'bg-red-200 text-white cursor-not-allowed'
+                                    : 'bg-red-500 text-white hover:bg-red-700')
+                            }
                             disabled={!turnStartState || JSON.stringify(effectiveState) === JSON.stringify(turnStartState)}
                         >
                             Undo
                         </button>
                         <button
                             onClick={handleConfirmMoves}
-                            className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-lg font-bold shadow"
-                            disabled={!pendingGameState || JSON.stringify(effectiveState) === JSON.stringify(turnStartState)}
+                            className={
+                                `px-6 py-2 rounded-lg transition-colors text-lg font-bold shadow ` +
+                                (!pendingGameState || JSON.stringify(effectiveState) === JSON.stringify(turnStartState) ||
+                                    !((effectiveState.usedDice && effectiveState.usedDice.every(u => u)) ||
+                                    (effectiveState.possibleMoves.length === 0 && effectiveState.usedDice && effectiveState.usedDice.some(u => !u)))
+                                ? 'bg-gray-300 text-gray-400 cursor-not-allowed'
+                                : 'bg-green-600 text-white hover:bg-green-700')
+                            }
+                            disabled={
+                                !pendingGameState ||
+                                JSON.stringify(effectiveState) === JSON.stringify(turnStartState) ||
+                                // Only enable if all dice used OR no moves available with unused dice
+                                !(
+                                    (effectiveState.usedDice && effectiveState.usedDice.every(u => u)) ||
+                                    (effectiveState.possibleMoves.length === 0 && effectiveState.usedDice && effectiveState.usedDice.some(u => !u))
+                                )
+                            }
                         >
                             Confirm Moves
                         </button>
