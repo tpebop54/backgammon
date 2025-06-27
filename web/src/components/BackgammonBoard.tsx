@@ -673,7 +673,16 @@ const BackgammonBoard: React.FC = () => {
             {/* Connection indicator */}
             <div className="flex items-center mb-2">
                 <span className={`inline-block w-3 h-3 rounded-full mr-2 ${connected ? 'bg-green-500' : 'bg-red-500'}`}></span>
-                <span className="text-xs font-semibold text-gray-700">{connected ? 'Connected' : 'Disconnected'}</span>
+                <span className="text-xs font-semibold text-gray-700 mr-4">{connected ? 'Connected' : 'Disconnected'}</span>
+                {/* Turn and dice info */}
+                <span className="text-xs font-semibold text-gray-700">
+                    Turn: {effectiveState.currentPlayer}
+                    {effectiveState.dice && (
+                        <>
+                            {' | Dice: '}{effectiveState.dice.join(', ')}
+                        </>
+                    )}
+                </span>
             </div>
 
             <h1 className="text-3xl font-bold mb-8 text-amber-900">Backgammon</h1>
