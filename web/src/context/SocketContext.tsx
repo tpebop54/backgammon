@@ -1,3 +1,5 @@
+'use client';
+
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { getSocket } from '../utils/socket';
 
@@ -40,15 +42,21 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const joinRoom = (roomId: string) => {
     roomRef.current = roomId;
-    socketRef.current.emit('join', roomId);
+    if (socketRef.current) {
+      socketRef.current.emit('join', roomId);
+    }
   };
 
   const sendMove = (newState: GameState) => {
-    socketRef.current.emit('makeMove', { roomId: roomRef.current, newState });
+    if (socketRef.current) {
+      socketRef.current.emit('makeMove', { roomId: roomRef.current, newState });
+    }
   };
 
   const resetGame = () => {
-    socketRef.current.emit('reset', roomRef.current);
+    if (socketRef.current) {
+      socketRef.current.emit('reset', roomRef.current);
+    }
   };
 
   return (
