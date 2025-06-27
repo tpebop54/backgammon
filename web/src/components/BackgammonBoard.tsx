@@ -155,8 +155,8 @@ const BackgammonBoard: React.FC = () => {
                                 }
                             }
                             const exact = (from + 1) === dice;
-                            // FIX: Allow bearing off with a higher die from the highest occupied point if no checkers on higher points
-                            if (exact || (!fartherCheckerExists && isHighest && dice > (from + 1))) {
+                            // FIX: Allow bearing off with a higher die from the highest occupied point if no checkers on higher points (regardless of lower points)
+                            if (exact || (isHighest && dice > (from + 1))) {
                                 moves.push({ from, to: -2, dice });
                             }
                         } else {
@@ -176,7 +176,7 @@ const BackgammonBoard: React.FC = () => {
                                 }
                             }
                             const exact = (24 - from) === dice;
-                            if (exact || (!fartherCheckerExists && isHighest && dice > (24 - from))) {
+                            if (exact || (isHighest && dice > (24 - from))) {
                                 moves.push({ from, to: -2, dice });
                             }
                         }
