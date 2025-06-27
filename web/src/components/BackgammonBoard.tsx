@@ -758,20 +758,37 @@ const BackgammonBoard: React.FC = () => {
         );
     };
 
-    if (gameState.gamePhase === 'finished') {
-        const winner = gameState.home.white === 15 ? 'WHITE' : 'BLACK';
-        return (
-            <div className="flex flex-col items-center justify-center min-h-screen bg-amber-100">
-                <div className="text-6xl font-bold text-amber-900 mb-8">🎉</div>
-                <h1 className="text-4xl font-bold mb-4 text-amber-900">{winner} WINS!</h1>
+    // Dynamically determine checker count for each player from initialGameState
+    const initialWhiteCheckers = initialGameState.board.reduce((sum, n) => sum + (n > 0 ? n : 0), 0) + initialGameState.bar.white + initialGameState.home.white;
+const initialBlackCheckers = initialGameState.board.reduce((sum, n) => sum + (n < 0 ? -n : 0), 0) + initialGameState.bar.black + initialGameState.home.black;
+const totalWhite = gameState.home.white;
+const totalBlack = gameState.home.black;
+const whiteOnBoard = gameState.board.reduce((sum, n) => sum + (n > 0 ? n : 0), 0) + gameState.bar.white;
+const blackOnBoard = gameState.board.reduce((sum, n) => sum + (n < 0 ? -n : 0), 0) + gameState.bar.black;
+let winner: string | null = null;
+if (totalWhite === initialWhiteCheckers && whiteOnBoard === 0) winner = 'WHITE';
+if (totalBlack === initialBlackCheckers && blackOnBoard === 0) winner = 'BLACK';
+if (winner) {
+    return (
+        <div className="flex flex-col items-center justify-center min-h-screen bg-amber-100">
+            <div className="w-full flex flex-col items-center mb-8">
+                <div className="text-4xl font-bold text-green-700 mb-2">{winner} WINS!</div>
                 <button
-                    onClick={() => setGameState(initialGameState)}
-                    className="px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xl"
+                    onClick={() => window.location.reload()}
+                    className="px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xl font-bold shadow-lg"
                 >
-                    New Game
+                    Refresh Page
                 </button>
             </div>
-        );
+            <div className="text-6xl font-bold text-amber-900 mb-8">🎉</div>
+            <button
+                onClick={() => setGameState(initialGameState)}
+                className="px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xl"
+            >
+                New Game
+            </button>
+        </div>
+    );
     }
 
     return (
@@ -893,7 +910,7 @@ const BackgammonBoard: React.FC = () => {
                                 draggable={gameState.currentPlayer === 'white' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing'}
                                 onDragStart={e => gameState.currentPlayer === 'white' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing' ? handleBarDragStart(e, 'white') : e.preventDefault()}
                                 onDragEnd={handleDragEnd}
-                                className={`w-8 h-8 rounded-full border-2 bg-white border-gray-800 select-none transition-transform ${gameState.currentPlayer === 'white' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing' ? 'cursor-move hover:scale-110' : ''}`}
+                                className={`w-4 h-4 rounded-full border-2 bg-white border-gray-800 select-none transition-transform ${gameState.currentPlayer === 'white' && gameState.possibleMoves.some(move => move.from === -1) && gameState.gamePhase === 'playing' ? 'cursor-move hover:scale-110' : ''}`}
                                 style={{ userSelect: 'none', margin: '2px 0' }}
                             />
                         ))}
