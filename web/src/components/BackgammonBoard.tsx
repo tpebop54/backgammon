@@ -303,9 +303,20 @@ const BackgammonBoard: React.FC = () => {
         }
 
         // Update used dice
-        const diceIndex = state.dice!.indexOf(dice);
+        // Find the first unused die of the correct value and mark it as used
+        let diceIndex = -1;
+        if (state.dice) {
+            for (let i = 0; i < state.dice.length; i++) {
+                if (state.dice[i] === dice && !state.usedDice[i]) {
+                    diceIndex = i;
+                    break;
+                }
+            }
+        }
         const newUsedDice = [...state.usedDice];
-        newUsedDice[diceIndex] = true;
+        if (diceIndex !== -1) {
+            newUsedDice[diceIndex] = true;
+        }
 
         // Check for win immediately after bearing off
         const totalWhite = newHome.white;
