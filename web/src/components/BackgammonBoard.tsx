@@ -674,12 +674,15 @@ const BackgammonBoard: React.FC = () => {
             <div className="flex items-center mb-2">
                 <span className={`inline-block w-3 h-3 rounded-full mr-2 ${connected ? 'bg-green-500' : 'bg-red-500'}`}></span>
                 <span className="text-xs font-semibold text-gray-700 mr-4">{connected ? 'Connected' : 'Disconnected'}</span>
-                {/* Player indicator: show only the local player's color */}
+                {/* Player indicator: show only the local player's color if assigned */}
                 {playerColor === 'white' && (
                     <span className="inline-block w-4 h-4 rounded-full bg-white border border-gray-400 mr-3 align-middle" title="You are White"></span>
                 )}
                 {playerColor === 'black' && (
                     <span className="inline-block w-4 h-4 rounded-full bg-black border border-gray-400 mr-3 align-middle" title="You are Black"></span>
+                )}
+                {(!playerColor || (playerColor !== 'white' && playerColor !== 'black')) && (
+                    <span className="inline-block w-4 h-4 rounded-full bg-gray-300 border border-gray-400 mr-3 align-middle" title="Spectator or unknown"></span>
                 )}
                 {/* Turn and dice info */}
                 <span className="text-xs font-semibold text-gray-700">
