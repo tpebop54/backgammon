@@ -83,7 +83,8 @@ function handleMakeMoves(roomId, moves, playerColor, isServerTimeout = false) {
             const diceArray = rollDice();
             timers[player] = TIMER_DURATION;
             timers[nextPlayer] = TIMER_DURATION;
-            state = {
+            // Always create a fresh state for the next player on timeout
+            const nextState = {
                 ...state,
                 currentPlayer: nextPlayer,
                 dice: diceArray,
@@ -91,9 +92,9 @@ function handleMakeMoves(roomId, moves, playerColor, isServerTimeout = false) {
                 gamePhase: 'playing',
                 timers,
             };
-            state.possibleMoves = calculatePossibleMoves(state);
-            games[roomId] = state;
-            io.to(roomId).emit('gameState', state);
+            nextState.possibleMoves = calculatePossibleMoves(nextState);
+            games[roomId] = nextState;
+            io.to(roomId).emit('gameState', nextState);
             startGameTimer(roomId);
             return;
         }
