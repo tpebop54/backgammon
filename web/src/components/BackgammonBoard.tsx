@@ -751,8 +751,8 @@ const BackgammonBoard: React.FC = () => {
                 onUndo={handleUndo}
                 onConfirm={handleConfirmMoves}
                 onNewGame={handleNewGame}
-                canUndo={false}
-                canConfirm={false}
+                canUndo={pendingMoves.length > 0}
+                canConfirm={pendingMoves.length > 0}
                 showNewGame={!!winner}
             />
 
