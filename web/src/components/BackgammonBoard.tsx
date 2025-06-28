@@ -271,6 +271,19 @@ const BackgammonBoard: React.FC = () => {
 
     // --- End handler and helper function declarations ---
 
+    // Handle timer reaching 0: clear pending moves, reset preview state, and send timeout/pass move to server
+    useEffect(() => {
+        if (winner || effectiveState.gamePhase !== 'playing') return;
+        const current = effectiveState.currentPlayer;
+        if (timers[current] === 0 && isMyTurn) {
+            // Clear pending moves and preview state
+            setPendingMoves([]);
+            setLocalState(null);
+            // Send a timeout/pass move to the server
+            sendMove({ from: -1, to: -1, dice: -1 });
+        }
+    }, [timers, effectiveState.currentPlayer, effectiveState.gamePhase, isMyTurn, winner, sendMove]);
+
     // Automatically roll dice at the start of the first turn only
     useEffect(() => {
         const state = gameState;
@@ -763,6 +776,23 @@ const BackgammonBoard: React.FC = () => {
         setSelectedPoint(pointIndex);
         setInvalidDropFeedback(null);
     };
+
+    // --- Timer timeout: if timer reaches 0, auto-end turn and discard pending moves ---
+    useEffect(() => {
+        if (!isMyTurn || winner || effectiveState.gamePhase !== 'playing') return;
+        const current = effectiveState.currentPlayer;
+        if (timers[current] === 0) {
+            // Discard any pending moves and reset preview
+            setPendingMoves([]);
+            setLocalState(null);
+            // Optionally, send a 'timeout' move to the server if supported
+            // For now, just send a 'pass' (no move) to end the turn
+            // Only send if there are unused dice (i.e., turn not already ended)
+            if (effectiveState.dice && effectiveState.usedDice.some(u => !u)) {
+                sendMove({ from: -999, to: -999, dice: -999 }); // Convention: -999 means timeout/pass
+            }
+        }
+    }, [timers, isMyTurn, winner, effectiveState, sendMove]);
 
     return (
         <div className="flex flex-col items-center p-8 bg-amber-100 min-h-screen">
