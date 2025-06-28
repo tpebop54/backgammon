@@ -635,7 +635,13 @@ const BackgammonBoard: React.FC = () => {
         // Add bar checkers: white bar = 25, black bar = 25
         if (player === 'white') pipSum += displayState.bar.white * 25;
         if (player === 'black') pipSum += displayState.bar.black * 25;
-        return pipSum;
+        // If all checkers are borne off, pip count is 0
+        if (
+            displayState.home[player] === (player === 'white' ? initialWhiteCheckers : initialBlackCheckers)
+        ) {
+            return 0;
+        }
+        return Math.max(0, pipSum);
     };
 
     // Render the home area for a player
@@ -785,11 +791,9 @@ const BackgammonBoard: React.FC = () => {
             // Discard any pending moves and reset preview
             setPendingMoves([]);
             setLocalState(null);
-            // Optionally, send a 'timeout' move to the server if supported
-            // For now, just send a 'pass' (no move) to end the turn
             // Only send if there are unused dice (i.e., turn not already ended)
             if (effectiveState.dice && effectiveState.usedDice.some(u => !u)) {
-                sendMove({ from: -999, to: -999, dice: -999 }); // Convention: -999 means timeout/pass
+                sendMove({ from: -1, to: -1, dice: -1 }); // Use -1 for pass/timeout for server compatibility
             }
         }
     }, [timers, isMyTurn, winner, effectiveState, sendMove]);
