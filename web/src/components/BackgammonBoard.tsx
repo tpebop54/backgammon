@@ -38,7 +38,7 @@ const defaultBoard = [
     -5, 0, 0, 0, 0, 2,    // 19-24: 3 black on 17, 5 black on 19, 2 white on 24
 ];
 
-const freshBoard = defaultBoard;
+const freshBoard = devBoard;
 
 // Initial checker locations
 const initialGameState: GameState = {
