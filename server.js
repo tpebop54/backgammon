@@ -31,6 +31,40 @@ const TIMER_INTERVAL_MS = 1000;
 // --- Timer management ---
 const gameTimers = {}; // roomId -> NodeJS.Timeout
 
+// --- Store turn start state for revert-on-timeout ---
+// Each game state will have a .turnStartState property
+// Save a deep copy at the start of each turn
+function saveTurnStartState(roomId) {
+    const state = games[roomId];
+    if (!state) return;
+    // Only save relevant fields
+    state.turnStartState = {
+        board: [...state.board],
+        bar: { ...state.bar },
+        home: { ...state.home },
+        usedDice: state.usedDice ? [...state.usedDice] : null,
+        dice: state.dice ? [...state.dice] : null,
+        currentPlayer: state.currentPlayer,
+        timers: { ...state.timers },
+        gamePhase: state.gamePhase,
+    };
+}
+
+function restoreTurnStartState(roomId) {
+    const state = games[roomId];
+    if (!state || !state.turnStartState) return;
+    const snap = state.turnStartState;
+    state.board = [...snap.board];
+    state.bar = { ...snap.bar };
+    state.home = { ...snap.home };
+    state.usedDice = snap.usedDice ? [...snap.usedDice] : null;
+    state.dice = snap.dice ? [...snap.dice] : null;
+    state.currentPlayer = snap.currentPlayer;
+    state.timers = { ...snap.timers };
+    state.gamePhase = snap.gamePhase;
+}
+
+// --- Timer management ---
 function startGameTimer(roomId) {
     if (gameTimers[roomId]) clearInterval(gameTimers[roomId]);
     gameTimers[roomId] = setInterval(() => {
@@ -79,9 +113,13 @@ function handleMakeMoves(roomId, moves, playerColor, isServerTimeout = false) {
     for (const move of moves) {
         // Timeout/pass move: end turn immediately
         if (isPassMove(move)) {
-            const nextPlayer = switchPlayer(player);
+            // --- Revert to turn start state on timeout/pass ---
+            restoreTurnStartState(roomId);
+            state = games[roomId];
+            const nextPlayer = switchPlayer(state.currentPlayer);
             const diceArray = rollDice();
-            timers[player] = TIMER_DURATION;
+            timers = { ...state.timers };
+            timers[state.currentPlayer] = TIMER_DURATION;
             timers[nextPlayer] = TIMER_DURATION;
             // Always create a fresh state for the next player on timeout
             const nextState = {
@@ -91,12 +129,12 @@ function handleMakeMoves(roomId, moves, playerColor, isServerTimeout = false) {
                 usedDice: new Array(diceArray.length).fill(false),
                 gamePhase: 'playing',
                 timers,
-                // Reset preview/queued moves if any
                 possibleMoves: [],
             };
             nextState.possibleMoves = calculatePossibleMoves(nextState);
             games[roomId] = nextState;
             io.to(roomId).emit('gameState', nextState);
+            saveTurnStartState(roomId); // Save snapshot for new turn
             startGameTimer(roomId);
             return;
         }
@@ -219,6 +257,7 @@ function handleMakeMoves(roomId, moves, playerColor, isServerTimeout = false) {
             board: nextState.board,
             gamePhase: nextState.gamePhase || 'playing',
         });
+        saveTurnStartState(roomId); // Save snapshot for new turn
         startGameTimer(roomId);
     }
     games[roomId] = nextState;
