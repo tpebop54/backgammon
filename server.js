@@ -102,7 +102,11 @@ function handleMakeMove(roomId, move, playerColor, isServerTimeout = false) {
     if (from === PASS_FROM) {
         newBar[player] -= 1;
     } else {
-        newBoard[from] -= player === 'white' ? 1 : -1;
+        if (player === 'white') {
+            newBoard[from] -= 1;
+        } else {
+            newBoard[from] += 1;
+        }
     }
     // Handle hitting opponent's blot (single checker)
     if (to !== BEAR_OFF_TO && to !== PASS_TO) {
@@ -116,7 +120,11 @@ function handleMakeMove(roomId, move, playerColor, isServerTimeout = false) {
     if (to === BEAR_OFF_TO) {
         newHome[player] += 1;
     } else {
-        newBoard[to] += player === 'white' ? 1 : -1;
+        if (player === 'white') {
+            newBoard[to] += 1;
+        } else {
+            newBoard[to] -= 1;
+        }
     }
     // Update used dice
     let diceIndex = -1;
