@@ -831,7 +831,7 @@ const BackgammonBoard: React.FC = () => {
                                 style={{ width: 80 }}
                             >
                                 <div style={{ transform: 'scale(0.7)', width: '100%' }}>
-                                    <Dice dice={diceToShow} usedDice={usedDiceToShow} />
+                                    <Dice dice={diceToShow} usedDice={usedDiceToShow} disabled={!isMyTurn} />
                                 </div>
                             </div>
                         )}
