@@ -112,8 +112,25 @@ function calculatePossibleMoves(state) {
     return moves;
 }
 
+/**
+ * Checks if a player has won the game.
+ * @param {object} home - The home object with white and black counts
+ * @param {number[]} board - The board array
+ * @param {object} bar - The bar object with white and black counts
+ * @returns {'white' | 'black' | null}
+ */
+function checkWin(home, board, bar) {
+    // Standard backgammon: 15 checkers per player
+    const totalWhite = home.white;
+    const totalBlack = home.black;
+    if (totalWhite === 15) return 'white';
+    if (totalBlack === 15) return 'black';
+    return null;
+}
+
 module.exports = {
     getBoard,
     getInitialGameState,
     calculatePossibleMoves,
+    checkWin,
 };

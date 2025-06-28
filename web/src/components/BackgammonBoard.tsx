@@ -343,9 +343,9 @@ const BackgammonBoard: React.FC = () => {
         const movesToSend = [...pendingMoves];
         setPendingMoves([]);
         setLocalState(null);
-        // Send all moves to server
-        for (const move of movesToSend) {
-            sendMove(move);
+        // Send all moves to server as a batch
+        if (playerColor) {
+            sendMove(movesToSend, playerColor);
         }
     };
 

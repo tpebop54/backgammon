@@ -2,7 +2,7 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-const { getInitialGameState, calculatePossibleMoves } = require('./shared/gameLogic');
+const { getInitialGameState, calculatePossibleMoves, checkWin } = require('./shared/gameLogic');
 
 const app = express();
 const server = http.createServer(app);
