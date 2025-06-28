@@ -154,17 +154,18 @@ function handleMakeMoves(roomId, moves, playerColor, isServerTimeout = false) {
         }
         const { from, to, dice: moveDice } = move;
         // --- Only move one checker per move, even with doubles ---
-        if (from === PASS_FROM) {
-            newBar[player] -= 1;
-        } else {
+        // Remove checker from 'from' (unless it's a pass move)
+        if (from !== PASS_FROM && from !== undefined && from !== null) {
             if (player === 'white') {
-                newBoard[from] -= 1;
+                if (newBoard[from] > 0) newBoard[from] -= 1;
             } else {
-                newBoard[from] += 1;
+                if (newBoard[from] < 0) newBoard[from] += 1;
             }
+        } else if (from === PASS_FROM) {
+            newBar[player] -= 1;
         }
         // Handle hitting opponent's blot (single checker)
-        if (to !== BEAR_OFF_TO && to !== PASS_TO) {
+        if (to !== BEAR_OFF_TO && to !== PASS_TO && to !== undefined && to !== null) {
             const dest = newBoard[to];
             if ((player === 'white' && dest === -1) || (player === 'black' && dest === 1)) {
                 newBoard[to] = 0;
@@ -174,7 +175,7 @@ function handleMakeMoves(roomId, moves, playerColor, isServerTimeout = false) {
         // Place our checker (after possible hit)
         if (to === BEAR_OFF_TO) {
             newHome[player] += 1;
-        } else {
+        } else if (to !== PASS_TO && to !== undefined && to !== null) {
             if (player === 'white') {
                 newBoard[to] += 1;
             } else {
@@ -194,6 +195,8 @@ function handleMakeMoves(roomId, moves, playerColor, isServerTimeout = false) {
         if (diceIndex !== -1) {
             newUsedDice[diceIndex] = true;
         }
+        // Debug: log each move processed
+        // console.log('Processed move:', move, 'Board:', newBoard);
         // Check for win after each move
         winner = checkWin ? checkWin(newHome, newBoard, newBar) : null;
         if (winner) break;
