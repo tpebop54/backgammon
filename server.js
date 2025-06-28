@@ -224,6 +224,13 @@ function switchPlayer(player) {
     return player === 'white' ? 'black' : 'white';
 }
 
+// Helper to validate a move against possibleMoves
+function isValidMove(move, possibleMoves) {
+    return possibleMoves.some(
+        m => m.from === move.from && m.to === move.to && m.dice === move.dice
+    );
+}
+
 io.on('connection', (socket) => {
     socket.on('join', (roomId) => {
         socket.join(roomId);
