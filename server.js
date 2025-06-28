@@ -91,6 +91,8 @@ function handleMakeMoves(roomId, moves, playerColor, isServerTimeout = false) {
                 usedDice: new Array(diceArray.length).fill(false),
                 gamePhase: 'playing',
                 timers,
+                // Reset preview/queued moves if any
+                possibleMoves: [],
             };
             nextState.possibleMoves = calculatePossibleMoves(nextState);
             games[roomId] = nextState;
@@ -113,7 +115,7 @@ function handleMakeMoves(roomId, moves, playerColor, isServerTimeout = false) {
             return;
         }
         const { from, to, dice: moveDice } = move;
-        // Move checker on the board or from the bar
+        // --- Only move one checker per move, even with doubles ---
         if (from === PASS_FROM) {
             newBar[player] -= 1;
         } else {
@@ -141,10 +143,9 @@ function handleMakeMoves(roomId, moves, playerColor, isServerTimeout = false) {
                 newBoard[to] -= 1;
             }
         }
-        // Update used dice (fix for doubles: only mark one die as used per move)
+        // --- Only mark one die as used per move, even with doubles ---
         let diceIndex = -1;
         if (dice) {
-            // Only mark the first unused die matching moveDice as used
             for (let i = 0; i < dice.length; i++) {
                 if (dice[i] === moveDice && !newUsedDice[i]) {
                     diceIndex = i;
