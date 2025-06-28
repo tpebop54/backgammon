@@ -674,6 +674,16 @@ const BackgammonBoard: React.FC = () => {
 
     return (
         <div className="flex flex-col items-center p-8 bg-amber-100 min-h-screen">
+            {/* New Game button at the top */}
+            <div className="w-full flex justify-end mb-4">
+                <button
+                    onClick={resetGameSocket}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-semibold shadow"
+                >
+                    New Game
+                </button>
+            </div>
+
             {/* Connection indicator */}
             <div className="flex items-center mb-2">
                 <span className={`inline-block w-3 h-3 rounded-full mr-2 ${connected ? 'bg-green-500' : 'bg-red-500'}`}></span>
