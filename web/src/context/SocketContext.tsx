@@ -12,11 +12,12 @@ export type GameState = {
   usedDice: boolean[];
   gamePhase: 'setup' | 'playing' | 'finished';
   possibleMoves: Array<{ from: number; to: number; dice: number }>;
+  timers: { white: number; black: number }; // server-synced timers (required)
 };
 
 interface SocketContextType {
   gameState: GameState | null;
-  sendMove: (move: { from: number; to: number; dice: number }) => void;
+  sendMove: (moves: { from: number; to: number; dice: number }[], playerColor: 'white' | 'black' | null) => void;
   resetGame: () => void;
   joinRoom: (roomId: string) => void;
   connected: boolean;
@@ -58,10 +59,10 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  // Accepts a move object, not a full GameState
-  const sendMove = (move: { from: number; to: number; dice: number }) => {
-    if (socketRef.current) {
-      socketRef.current.emit('makeMove', { roomId: roomRef.current, move });
+  // Accepts an array of moves for a full turn
+  const sendMoves = (moves: { from: number; to: number; dice: number }[], playerColor: 'white' | 'black' | null) => {
+    if (socketRef.current && playerColor) {
+      socketRef.current.emit('makeMove', { roomId: roomRef.current, moves, playerColor });
     }
   };
 
@@ -72,7 +73,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   return (
-    <SocketContext.Provider value={{ gameState, sendMove, resetGame, joinRoom, connected, playerColor }}>
+    <SocketContext.Provider value={{ gameState, sendMove: sendMoves, resetGame, joinRoom, connected, playerColor }}>
       {children}
     </SocketContext.Provider>
   );

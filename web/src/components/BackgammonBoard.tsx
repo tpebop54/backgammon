@@ -20,6 +20,7 @@ export type GameState = {
     usedDice: boolean[]; // track which dice have been used
     gamePhase: 'setup' | 'playing' | 'finished';
     possibleMoves: Array<{ from: number; to: number; dice: number }>;
+    timers: { white: number; black: number }; // server-synced timers (required)
 };
 
 // Used for dev to test different scenarios.
@@ -49,7 +50,8 @@ const initialGameState: GameState = {
     dice: null,
     usedDice: [false, false],
     gamePhase: 'setup',
-    possibleMoves: []
+    possibleMoves: [],
+    timers: { white: 30, black: 30 }, // ensure timers always defined
 };
 
 const BackgammonBoard: React.FC = () => {
@@ -79,46 +81,21 @@ const BackgammonBoard: React.FC = () => {
     }, [joinRoom]);
 
     // Use remoteGameState if available
-    const effectiveState = remoteGameState || gameState;
+    // Always ensure timers are present in effectiveState
+    const effectiveState: GameState = {
+        ...(remoteGameState || gameState),
+        timers: (remoteGameState || gameState).timers || { white: 30, black: 30 },
+    };
 
     // --- Multiplayer: Only allow controls for the current player ---
     const isMyTurn = !!playerColor && effectiveState.currentPlayer === playerColor && effectiveState.gamePhase === 'playing';
 
     // --- 30-second countdown timers for each player ---
-    const TIMER_DURATION = 30;
-    const [timers, setTimers] = useState<{ white: number; black: number }>({ white: TIMER_DURATION, black: TIMER_DURATION });
-    const [timerActive, setTimerActive] = useState(false);
-    const [lastPlayer, setLastPlayer] = useState<Player | null>(null);
-
-    // Reset timer when turn changes
-    useEffect(() => {
-        if (effectiveState.currentPlayer !== lastPlayer) {
-            setTimers(prev => ({ ...prev, [effectiveState.currentPlayer]: TIMER_DURATION }));
-            setLastPlayer(effectiveState.currentPlayer);
-        }
-    }, [effectiveState.currentPlayer, lastPlayer]);
-
-    // Countdown effect for current player
-    useEffect(() => {
-        if (winner || effectiveState.gamePhase !== 'playing') return;
-        setTimerActive(true);
-        const current = effectiveState.currentPlayer;
-        if (!isMyTurn) return;
-        const interval = setInterval(() => {
-            setTimers(prev => {
-                if (prev[current] > 0) {
-                    return { ...prev, [current]: prev[current] - 1 };
-                }
-                return prev;
-            });
-        }, 1000);
-        return () => clearInterval(interval);
-    }, [isMyTurn, effectiveState.currentPlayer, effectiveState.gamePhase, winner]);
-
-    // Timer display component
+    // Timer display component (now uses server-synced timers)
     const TimerDisplay = ({ player }: { player: Player }) => {
-        const t = timers[player];
-        const isActive = effectiveState.currentPlayer === player && effectiveState.gamePhase === 'playing';
+        // timers is always present in displayState
+        const t = displayState.timers[player];
+        const isActive = displayState.currentPlayer === player && displayState.gamePhase === 'playing';
         return (
             <div className={`flex flex-col items-${player === 'black' ? 'start' : 'end'} w-24`}>
                 <span className="text-xs font-semibold text-gray-700 mb-1">{player === 'black' ? 'Black' : 'White'} Timer</span>
@@ -271,19 +248,6 @@ const BackgammonBoard: React.FC = () => {
 
     // --- End handler and helper function declarations ---
 
-    // Handle timer reaching 0: clear pending moves, reset preview state, and send timeout/pass move to server
-    useEffect(() => {
-        if (winner || effectiveState.gamePhase !== 'playing') return;
-        const current = effectiveState.currentPlayer;
-        if (timers[current] === 0 && isMyTurn) {
-            // Clear pending moves and preview state
-            setPendingMoves([]);
-            setLocalState(null);
-            // Send a timeout/pass move to the server
-            sendMove({ from: -1, to: -1, dice: -1 });
-        }
-    }, [timers, effectiveState.currentPlayer, effectiveState.gamePhase, isMyTurn, winner, sendMove]);
-
     // Automatically roll dice at the start of the first turn only
     useEffect(() => {
         const state = gameState;
@@ -322,8 +286,20 @@ const BackgammonBoard: React.FC = () => {
     const [pendingMoves, setPendingMoves] = useState<Array<{ from: number; to: number; dice: number }>>([]);
     const [localState, setLocalState] = useState<GameState | null>(null); // Local state after applying pending moves
 
+    // --- Ensure timers are always present in preview/local state ---
+    // Helper to always copy timers from effectiveState into any preview state
+    function withSyncedTimers(state: GameState): GameState {
+        return {
+            ...state,
+            timers: effectiveState.timers ?? { white: 30, black: 30 },
+        };
+    }
+
     // Use localState if pendingMoves exist, else effectiveState
-    const displayState = localState || effectiveState;
+    // Always ensure timers are present in localState
+    const displayState: GameState = localState
+        ? { ...localState, timers: effectiveState.timers }
+        : effectiveState;
 
     // For dice preview: show localState.dice/usedDice for the current player if there are pending moves, otherwise show effectiveState
     const diceToShow = (pendingMoves.length > 0 && isMyTurn && localState) ? localState.dice : effectiveState.dice;
@@ -345,13 +321,17 @@ const BackgammonBoard: React.FC = () => {
         let previewState = { ...baseState };
         let movesToApply = [...pendingMoves, { from, to, dice }];
         for (const move of movesToApply) {
-            previewState = applyMoveLocally(previewState, move);
-            // Recalculate possibleMoves after each move for correct preview
             previewState = {
                 ...previewState,
-                possibleMoves: calculatePossibleMoves(previewState)
+                ...(applyMoveLocally(previewState as any, move) as any),
+            };
+            previewState = {
+                ...previewState,
+                possibleMoves: calculatePossibleMoves(previewState),
             };
         }
+        // Always add timers to the final previewState (from effectiveState)
+        previewState = { ...previewState, timers: effectiveState.timers };
         setPendingMoves(movesToApply);
         setLocalState(previewState);
     };
@@ -363,9 +343,9 @@ const BackgammonBoard: React.FC = () => {
         const movesToSend = [...pendingMoves];
         setPendingMoves([]);
         setLocalState(null);
-        // Send all moves to server
-        for (const move of movesToSend) {
-            sendMove(move);
+        // Send all moves to server as a batch
+        if (playerColor) {
+            sendMove(movesToSend, playerColor);
         }
     };
 
@@ -374,14 +354,19 @@ const BackgammonBoard: React.FC = () => {
         if (pendingMoves.length === 0) return;
         const newMoves = pendingMoves.slice(0, -1);
         // Rebuild preview state from effectiveState and newMoves
-        let previewState = { ...(effectiveState as GameState) };
+        let previewState = { ...effectiveState };
         for (const move of newMoves) {
-            previewState = applyMoveLocally(previewState, move);
             previewState = {
                 ...previewState,
-                possibleMoves: calculatePossibleMoves(previewState)
+                ...(applyMoveLocally(previewState as any, move) as any),
+            };
+            previewState = {
+                ...previewState,
+                possibleMoves: calculatePossibleMoves(previewState),
             };
         }
+        // Always add timers to the final previewState (from effectiveState)
+        previewState = { ...previewState, timers: effectiveState.timers };
         setPendingMoves(newMoves);
         setLocalState(newMoves.length > 0 ? previewState : null);
     };
@@ -784,30 +769,6 @@ const BackgammonBoard: React.FC = () => {
         setSelectedPoint(pointIndex);
         setInvalidDropFeedback(null);
     };
-
-    // --- Timer timeout: if timer reaches 0, auto-end turn and discard pending moves ---
-    const [timeoutSent, setTimeoutSent] = useState(false);
-    useEffect(() => {
-        if (!isMyTurn || winner || effectiveState.gamePhase !== 'playing') return;
-        const current = effectiveState.currentPlayer;
-        if (timers[current] === 0 && !timeoutSent) {
-            // Discard any pending moves and reset preview
-            setPendingMoves([]);
-            setLocalState(null);
-            // Only send if there are unused dice (i.e., turn not already ended)
-            if (effectiveState.dice && effectiveState.usedDice.some(u => !u)) {
-                sendMove({ from: -1, to: -1, dice: -1 }); // Use -1 for pass/timeout for server compatibility
-            }
-            // Reset timer for current player to 30s
-            setTimers(prev => ({ ...prev, [current]: 30 }));
-            setTimeoutSent(true);
-        }
-    }, [timers, isMyTurn, winner, effectiveState, sendMove, timeoutSent]);
-
-    // Reset timeoutSent when turn changes
-    useEffect(() => {
-        setTimeoutSent(false);
-    }, [effectiveState.currentPlayer]);
 
     return (
         <div className="flex flex-col items-center p-8 bg-amber-100 min-h-screen">
