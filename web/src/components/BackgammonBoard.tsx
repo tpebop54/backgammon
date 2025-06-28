@@ -359,12 +359,14 @@ const BackgammonBoard: React.FC = () => {
     // Confirm all pending moves
     const handleConfirmMoves = () => {
         if (pendingMoves.length === 0) return;
-        // Send all moves to server
-        for (const move of pendingMoves) {
-            sendMove(move);
-        }
+        // Clear pending moves and local state before sending to prevent double-sending
+        const movesToSend = [...pendingMoves];
         setPendingMoves([]);
         setLocalState(null);
+        // Send all moves to server
+        for (const move of movesToSend) {
+            sendMove(move);
+        }
     };
 
     // Undo last pending move
