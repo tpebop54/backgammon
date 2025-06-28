@@ -194,6 +194,13 @@ function handleMakeMove(roomId, move, playerColor, isServerTimeout = false) {
     io.to(roomId).emit('gameState', nextState);
 }
 
+// --- Dice roll helper ---
+function rollDice() {
+    const d1 = Math.floor(Math.random() * 6) + 1;
+    const d2 = Math.floor(Math.random() * 6) + 1;
+    return d1 === d2 ? [d1, d1, d1, d1] : [d1, d2];
+}
+
 io.on('connection', (socket) => {
     socket.on('join', (roomId) => {
         socket.join(roomId);

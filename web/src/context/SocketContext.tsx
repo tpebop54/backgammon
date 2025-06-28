@@ -12,6 +12,7 @@ export type GameState = {
   usedDice: boolean[];
   gamePhase: 'setup' | 'playing' | 'finished';
   possibleMoves: Array<{ from: number; to: number; dice: number }>;
+  timers: { white: number; black: number }; // server-synced timers (required)
 };
 
 interface SocketContextType {
