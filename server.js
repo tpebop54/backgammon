@@ -16,6 +16,7 @@ const io = new Server(server, {
 const PASS_FROM = -999;
 const PASS_TO = -999;
 const PASS_DICE = -999;
+const BEAR_OFF_TO = -2; // Add this line for bear off moves
 
 // In-memory game state for demo (roomId -> gameState)
 const games = {};
@@ -58,90 +59,105 @@ function stopGameTimer(roomId) {
 }
 
 // --- Refactor move handler for timer support ---
-function handleMakeMove(roomId, move, playerColor, isServerTimeout = false) {
-    const state = games[roomId];
-    if (!state || !move) return;
+function handleMakeMoves(roomId, moves, playerColor, isServerTimeout = false) {
+    let state = games[roomId];
+    if (!state || !moves || !Array.isArray(moves) || moves.length === 0) return;
     // Only allow the current player to make a move (unless server timeout)
     if (!isServerTimeout && playerAssignments[roomId]?.[state.currentPlayer] !== undefined && playerAssignments[roomId][state.currentPlayer] !== null) {
         if (playerColor !== state.currentPlayer) return;
     }
-    // --- Timeout/Pass Move Handling ---
-    if (isPassMove(move)) {
-        // End turn, roll dice for next player, reset timers
-        const nextPlayer = switchPlayer(state.currentPlayer);
-        const diceArray = rollDice();
-        const timers = { ...state.timers };
-        timers[state.currentPlayer] = TIMER_DURATION;
-        timers[nextPlayer] = TIMER_DURATION;
-        const nextState = {
+    let player = state.currentPlayer;
+    let opponent = switchPlayer(player);
+    let newBoard = [...state.board];
+    let newBar = { ...state.bar };
+    let newHome = { ...state.home };
+    let newUsedDice = [...state.usedDice];
+    let dice = state.dice ? [...state.dice] : null;
+    let timers = { ...state.timers };
+    let gamePhase = state.gamePhase;
+    let winner = null;
+    for (const move of moves) {
+        // Timeout/pass move: end turn immediately
+        if (isPassMove(move)) {
+            const nextPlayer = switchPlayer(player);
+            const diceArray = rollDice();
+            timers[player] = TIMER_DURATION;
+            timers[nextPlayer] = TIMER_DURATION;
+            state = {
+                ...state,
+                currentPlayer: nextPlayer,
+                dice: diceArray,
+                usedDice: new Array(diceArray.length).fill(false),
+                gamePhase: 'playing',
+                timers,
+            };
+            state.possibleMoves = calculatePossibleMoves(state);
+            games[roomId] = state;
+            io.to(roomId).emit('gameState', state);
+            startGameTimer(roomId);
+            return;
+        }
+        // Validate move
+        const possibleMoves = calculatePossibleMoves({
             ...state,
-            currentPlayer: nextPlayer,
-            dice: diceArray,
-            usedDice: new Array(diceArray.length).fill(false),
-            gamePhase: 'playing',
-            timers,
-        };
-        nextState.possibleMoves = calculatePossibleMoves(nextState);
-        games[roomId] = nextState;
-        io.to(roomId).emit('gameState', nextState);
-        startGameTimer(roomId);
-        return;
-    }
-    // --- Server-side Move Validation ---
-    if (!isValidMove(move, state.possibleMoves)) {
-        return;
-    }
-    // move: { from, to, dice }
-    const { from, to, dice } = move;
-    const player = state.currentPlayer;
-    const opponent = switchPlayer(player);
-    const newBoard = [...state.board];
-    const newBar = { ...state.bar };
-    const newHome = { ...state.home };
-    // Move checker on the board or from the bar
-    if (from === PASS_FROM) {
-        newBar[player] -= 1;
-    } else {
-        if (player === 'white') {
-            newBoard[from] -= 1;
+            board: newBoard,
+            bar: newBar,
+            home: newHome,
+            usedDice: newUsedDice,
+            dice,
+            gamePhase,
+        });
+        if (!isValidMove(move, possibleMoves)) {
+            // If any move is invalid, reject the whole batch
+            return;
+        }
+        const { from, to, dice: moveDice } = move;
+        // Move checker on the board or from the bar
+        if (from === PASS_FROM) {
+            newBar[player] -= 1;
         } else {
-            newBoard[from] += 1;
-        }
-    }
-    // Handle hitting opponent's blot (single checker)
-    if (to !== BEAR_OFF_TO && to !== PASS_TO) {
-        const dest = newBoard[to];
-        if ((player === 'white' && dest === -1) || (player === 'black' && dest === 1)) {
-            newBoard[to] = 0;
-            newBar[opponent] += 1;
-        }
-    }
-    // Place our checker (after possible hit)
-    if (to === BEAR_OFF_TO) {
-        newHome[player] += 1;
-    } else {
-        if (player === 'white') {
-            newBoard[to] += 1;
-        } else {
-            newBoard[to] -= 1;
-        }
-    }
-    // Update used dice
-    let diceIndex = -1;
-    if (state.dice) {
-        for (let i = 0; i < state.dice.length; i++) {
-            if (state.dice[i] === dice && !state.usedDice[i]) {
-                diceIndex = i;
-                break;
+            if (player === 'white') {
+                newBoard[from] -= 1;
+            } else {
+                newBoard[from] += 1;
             }
         }
+        // Handle hitting opponent's blot (single checker)
+        if (to !== BEAR_OFF_TO && to !== PASS_TO) {
+            const dest = newBoard[to];
+            if ((player === 'white' && dest === -1) || (player === 'black' && dest === 1)) {
+                newBoard[to] = 0;
+                newBar[opponent] += 1;
+            }
+        }
+        // Place our checker (after possible hit)
+        if (to === BEAR_OFF_TO) {
+            newHome[player] += 1;
+        } else {
+            if (player === 'white') {
+                newBoard[to] += 1;
+            } else {
+                newBoard[to] -= 1;
+            }
+        }
+        // Update used dice
+        let diceIndex = -1;
+        if (dice) {
+            for (let i = 0; i < dice.length; i++) {
+                if (dice[i] === moveDice && !newUsedDice[i]) {
+                    diceIndex = i;
+                    break;
+                }
+            }
+        }
+        if (diceIndex !== -1) {
+            newUsedDice[diceIndex] = true;
+        }
+        // Check for win after each move
+        winner = checkWin ? checkWin(newHome, newBoard, newBar) : null;
+        if (winner) break;
     }
-    const newUsedDice = [...state.usedDice];
-    if (diceIndex !== -1) {
-        newUsedDice[diceIndex] = true;
-    }
-    // Check for win
-    const winner = checkWin(newHome, newBoard, newBar);
+    // If win, finish game
     if (winner) {
         stopGameTimer(roomId);
         games[roomId] = {
@@ -151,9 +167,9 @@ function handleMakeMove(roomId, move, playerColor, isServerTimeout = false) {
             home: newHome,
             usedDice: newUsedDice,
             gamePhase: 'finished',
-            dice: null, // Hide dice after win
+            dice: null,
             possibleMoves: [],
-            timers: state.timers,
+            timers,
         };
         io.to(roomId).emit('gameState', games[roomId]);
         return;
@@ -166,8 +182,8 @@ function handleMakeMove(roomId, move, playerColor, isServerTimeout = false) {
         bar: newBar,
         home: newHome,
         usedDice: newUsedDice,
-        dice: state.dice, // Ensure dice is always present until turn is over
-        timers: state.timers,
+        dice,
+        timers,
     };
     nextState.possibleMoves = calculatePossibleMoves({
         ...nextState,
@@ -181,7 +197,6 @@ function handleMakeMove(roomId, move, playerColor, isServerTimeout = false) {
     if (allUsed) {
         const nextPlayer = switchPlayer(player);
         const diceArray = rollDice();
-        const timers = { ...state.timers };
         timers[nextPlayer] = TIMER_DURATION;
         timers[player] = TIMER_DURATION;
         nextState = {
@@ -284,8 +299,8 @@ io.on('connection', (socket) => {
     });
 
     // Instead of sending the full newState, send a move object and let the server update state and roll dice
-    socket.on('makeMove', ({ roomId, move, playerColor }) => {
-        handleMakeMove(roomId, move, playerColor, false);
+    socket.on('makeMove', ({ roomId, moves, playerColor }) => {
+        handleMakeMoves(roomId, moves, playerColor, false);
     });
 
     socket.on('reset', (roomId) => {
