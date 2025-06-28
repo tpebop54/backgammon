@@ -12,6 +12,11 @@ const io = new Server(server, {
     },
 });
 
+// --- Special constants for pass/timeout moves ---
+const PASS_FROM = -999;
+const PASS_TO = -999;
+const PASS_DICE = -999;
+
 // In-memory game state for demo (roomId -> gameState)
 const games = {};
 
@@ -194,11 +199,21 @@ function handleMakeMove(roomId, move, playerColor, isServerTimeout = false) {
     io.to(roomId).emit('gameState', nextState);
 }
 
+// Helper to detect a pass/timeout move
+function isPassMove(move) {
+    return move && move.from === PASS_FROM && move.to === PASS_TO && move.dice === PASS_DICE;
+}
+
 // --- Dice roll helper ---
 function rollDice() {
     const d1 = Math.floor(Math.random() * 6) + 1;
     const d2 = Math.floor(Math.random() * 6) + 1;
     return d1 === d2 ? [d1, d1, d1, d1] : [d1, d2];
+}
+
+// Helper to switch player
+function switchPlayer(player) {
+    return player === 'white' ? 'black' : 'white';
 }
 
 io.on('connection', (socket) => {
