@@ -46,7 +46,7 @@ function startGameTimer(roomId) {
             const passMove = { from: PASS_FROM, to: PASS_TO, dice: PASS_DICE };
             // Simulate a pass move as if from the current player
             // This will trigger the normal pass logic and reset timers
-            handleMakeMove(roomId, passMove, current, true);
+            handleMakeMoves(roomId, [passMove], current, true);
         }
     }, TIMER_INTERVAL_MS);
 }
