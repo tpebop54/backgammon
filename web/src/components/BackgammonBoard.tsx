@@ -7,10 +7,11 @@ import Home from './Home';
 import Dice from './Dice';
 import Controls from './Controls';
 import { useSocketGame } from '../context/SocketContext';
+import { applyMoveLocally } from '../utils/applyMoveLocally';
 
 // Game state type definitions
-type Player = 'white' | 'black';
-type GameState = {
+export type Player = 'white' | 'black';
+export type GameState = {
     board: number[]; // 24 points, positive = white pieces, negative = black pieces
     bar: { white: number; black: number }; // pieces on the bar
     home: { white: number; black: number }; // pieces borne off
@@ -201,9 +202,9 @@ const BackgammonBoard: React.FC = () => {
         return moves;
     }, [canBearOff]);
 
-    // Update isValidMove to use effectiveState
+    // Update isValidMove to use displayState
     const isValidMove = (from: number, to: number, dice: number): boolean => {
-        return effectiveState.possibleMoves.some(move =>
+        return displayState.possibleMoves.some(move =>
             move.from === from && move.to === to && move.dice === dice
         );
     };
@@ -261,39 +262,78 @@ const BackgammonBoard: React.FC = () => {
         // Do not update state in a way that triggers this effect again unless necessary
     }, [gameState, calculatePossibleMoves]);
 
-    // Handler for making a move
-    const makeMove = (from: number, to: number, dice: number, checkerIndex: number | null = null) => {
-        // Only send the move to the server, do not update local state
-        sendMove({ from, to, dice } as any); // 'as any' to bypass type error for move-only payload
-        setSelectedPoint(null);
-        setDraggedPiece(null);
-        setDragOverPoint(null);
-        setDraggingPointIndex(null);
-        setDraggingCheckerIndex(null);
+    // Pending moves queue for confirm-moves feature
+    const [pendingMoves, setPendingMoves] = useState<Array<{ from: number; to: number; dice: number }>>([]);
+    const [localState, setLocalState] = useState<GameState | null>(null); // Local state after applying pending moves
+
+    // Use localState if pendingMoves exist, else effectiveState
+    const displayState = localState || effectiveState;
+
+    // When a move is made (drag/drop), validate and queue it locally
+    const queueMove = (from: number, to: number, dice: number, checkerIndex: number | null = null) => {
+        // Start from the last local state or effectiveState
+        const baseState = localState || effectiveState;
+        // Validate move against baseState.possibleMoves
+        const valid = baseState.possibleMoves.some(m => m.from === from && m.to === to && m.dice === dice);
+        if (!valid) return;
+        // Build up the preview state by applying all pending moves + this move
+        let previewState = { ...baseState };
+        let movesToApply = [...pendingMoves, { from, to, dice }];
+        for (const move of movesToApply) {
+            previewState = applyMoveLocally(previewState, move);
+            // Recalculate possibleMoves after each move for correct preview
+            previewState = {
+                ...previewState,
+                possibleMoves: calculatePossibleMoves(previewState)
+            };
+        }
+        setPendingMoves(movesToApply);
+        setLocalState(previewState);
     };
 
-    // Undo handler
-    const handleUndo = () => {
-        // No-op: undo is not supported in multiplayer mode
-    };
-
-    // Confirm moves handler
+    // Confirm all pending moves
     const handleConfirmMoves = () => {
-        // No-op: all state transitions are now handled by the server
+        if (pendingMoves.length === 0) return;
+        // Send all moves to server
+        for (const move of pendingMoves) {
+            sendMove(move);
+        }
+        setPendingMoves([]);
+        setLocalState(null);
     };
 
-    // In handleDragStart, use effectiveState
+    // Undo last pending move
+    const handleUndo = () => {
+        if (pendingMoves.length === 0) return;
+        const newMoves = pendingMoves.slice(0, -1);
+        // Rebuild preview state from effectiveState and newMoves
+        let previewState = { ...(effectiveState as GameState) };
+        for (const move of newMoves) {
+            previewState = applyMoveLocally(previewState, move);
+            previewState = {
+                ...previewState,
+                possibleMoves: calculatePossibleMoves(previewState)
+            };
+        }
+        setPendingMoves(newMoves);
+        setLocalState(newMoves.length > 0 ? previewState : null);
+    };
+
+    // Replace makeMove with queueMove in drag/drop handlers
+    // ...existing code...
+
+    // In handleDragStart, use displayState
     const handleDragStart = (e: React.DragEvent, pointIndex: number, checkerIndex: number) => {
-        const piece = effectiveState.board[pointIndex];
+        const piece = displayState.board[pointIndex];
         const player = piece > 0 ? 'white' : 'black';
         const absCount = Math.abs(piece);
 
-        if (player !== effectiveState.currentPlayer) {
+        if (player !== displayState.currentPlayer) {
             e.preventDefault();
             return;
         }
 
-        const hasValidMoves = effectiveState.possibleMoves.some(move => move.from === pointIndex);
+        const hasValidMoves = displayState.possibleMoves.some(move => move.from === pointIndex);
         if (!hasValidMoves) {
             e.preventDefault();
             return;
@@ -317,14 +357,14 @@ const BackgammonBoard: React.FC = () => {
         setInvalidDropFeedback(null);
     };
 
-    // In handleBarDragStart, use effectiveState
+    // In handleBarDragStart, use displayState
     const handleBarDragStart = (e: React.DragEvent, player: Player) => {
-        if (player !== effectiveState.currentPlayer || effectiveState.bar[player] === 0) {
+        if (player !== displayState.currentPlayer || displayState.bar[player] === 0) {
             e.preventDefault();
             return;
         }
 
-        const hasValidMoves = effectiveState.possibleMoves.some(move => move.from === -1);
+        const hasValidMoves = displayState.possibleMoves.some(move => move.from === -1);
         if (!hasValidMoves) {
             e.preventDefault();
             return;
@@ -338,7 +378,7 @@ const BackgammonBoard: React.FC = () => {
         setInvalidDropFeedback(null);
     };
 
-    // In handleDrop, use effectiveState
+    // In handleDrop, use displayState
     const handleDrop = (e: React.DragEvent, toPoint: number) => {
         e.preventDefault();
         setDragOverPoint(null);
@@ -362,14 +402,14 @@ const BackgammonBoard: React.FC = () => {
             return;
         }
         // Prevent any moves if all dice are used
-        if (!effectiveState.dice || effectiveState.usedDice.every(u => u)) return;
+        if (!displayState.dice || displayState.usedDice.every(u => u)) return;
         // Find available dice values for this move
-        const availableDice = effectiveState.dice?.filter((_, index) => !effectiveState.usedDice[index]) || [];
+        const availableDice = displayState.dice?.filter((_, index) => !displayState.usedDice[index]) || [];
 
         // Try each available dice value to see if the move is valid
         let validMove = null;
         for (const dice of availableDice) {
-            const possibleMove = effectiveState.possibleMoves.find(move =>
+            const possibleMove = displayState.possibleMoves.find(move =>
                 move.from === dragData.fromPoint && move.to === toPoint && move.dice === dice
             );
             if (possibleMove) {
@@ -379,7 +419,7 @@ const BackgammonBoard: React.FC = () => {
         }
 
         if (validMove) {
-            makeMove(dragData.fromPoint, toPoint, validMove.dice, dragData.checkerIndex);
+            queueMove(dragData.fromPoint, toPoint, validMove.dice, dragData.checkerIndex);
         } else {
             const fromName = dragData.fromPoint === -1 ? 'bar' : `point ${dragData.fromPoint + 1}`;
             const toName = toPoint === -2 ? 'home' : `point ${toPoint + 1}`;
@@ -393,7 +433,7 @@ const BackgammonBoard: React.FC = () => {
         setDraggingCheckerIndex(null);
     };
 
-    // In handleHomeDrop, use effectiveState
+    // In handleHomeDrop, use displayState
     const handleHomeDrop = (e: React.DragEvent, player: Player) => {
         e.preventDefault();
         setDragOverPoint(null);
@@ -417,13 +457,13 @@ const BackgammonBoard: React.FC = () => {
             return;
         }
         // Prevent any moves if all dice are used
-        if (!effectiveState.dice || effectiveState.usedDice.every(u => u)) return;
+        if (!displayState.dice || displayState.usedDice.every(u => u)) return;
         // Find available dice values for bearing off
-        const availableDice = effectiveState.dice?.filter((_, index) => !effectiveState.usedDice[index]) || [];
+        const availableDice = displayState.dice?.filter((_, index) => !displayState.usedDice[index]) || [];
 
         let validMove = null;
         for (const dice of availableDice) {
-            const possibleMove = effectiveState.possibleMoves.find(move =>
+            const possibleMove = displayState.possibleMoves.find(move =>
                 move.from === dragData.fromPoint && move.to === -2 && move.dice === dice
             );
             if (possibleMove) {
@@ -433,7 +473,7 @@ const BackgammonBoard: React.FC = () => {
         }
 
         if (validMove) {
-            makeMove(dragData.fromPoint, -2, validMove.dice);
+            queueMove(dragData.fromPoint, -2, validMove.dice);
         } else {
             const fromName = dragData.fromPoint === -1 ? 'bar' : `point ${dragData.fromPoint + 1}`;
             setInvalidDropFeedback(`Cannot bear off from ${fromName} - invalid move`);
@@ -446,22 +486,22 @@ const BackgammonBoard: React.FC = () => {
         setDraggingCheckerIndex(null);
     };
 
-    // In handleBearOff, use effectiveState
+    // In handleBearOff, use displayState
     const handleBearOff = () => {
         // Prevent any moves if all dice are used
-        if (!effectiveState.dice || effectiveState.usedDice.every(u => u)) return;
+        if (!displayState.dice || displayState.usedDice.every(u => u)) return;
         if (selectedPoint !== null && selectedPoint >= 0) {
-            const possibleMove = effectiveState.possibleMoves.find(move =>
+            const possibleMove = displayState.possibleMoves.find(move =>
                 move.from === selectedPoint && move.to === -2
             );
 
             if (possibleMove) {
-                makeMove(selectedPoint, -2, possibleMove.dice);
+                queueMove(selectedPoint, -2, possibleMove.dice);
             }
         }
     };
 
-    // In getPointHighlight, use effectiveState
+    // In getPointHighlight, use displayState
     const getPointHighlight = (pointIndex: number): string => {
         if (selectedPoint === pointIndex) return 'ring-4 ring-blue-400';
         if (dragOverPoint === pointIndex) return 'ring-4 ring-purple-400 bg-purple-100';
@@ -469,8 +509,8 @@ const BackgammonBoard: React.FC = () => {
         // Only highlight valid drop targets when dragging from the bar
         if (draggedPiece && draggedPiece.fromPoint === -1) {
             // Only highlight if move uses an unused die
-            const canMoveTo = effectiveState.possibleMoves.some(move =>
-                move.from === -1 && move.to === pointIndex && !effectiveState.usedDice[effectiveState.dice?.indexOf(move.dice) ?? -1]
+            const canMoveTo = displayState.possibleMoves.some(move =>
+                move.from === -1 && move.to === pointIndex && !displayState.usedDice[displayState.dice?.indexOf(move.dice) ?? -1]
             );
             if (canMoveTo) return 'ring-2 ring-green-400 bg-green-100';
             return '';
@@ -479,8 +519,8 @@ const BackgammonBoard: React.FC = () => {
         if (selectedPoint !== null || draggedPiece) {
             const fromPoint = draggedPiece ? draggedPiece.fromPoint : selectedPoint;
             // Only highlight if move uses an unused die
-            const canMoveTo = effectiveState.possibleMoves.some(move =>
-                move.from === fromPoint && move.to === pointIndex && !effectiveState.usedDice[effectiveState.dice?.indexOf(move.dice) ?? -1]
+            const canMoveTo = displayState.possibleMoves.some(move =>
+                move.from === fromPoint && move.to === pointIndex && !displayState.usedDice[displayState.dice?.indexOf(move.dice) ?? -1]
             );
             if (canMoveTo) return 'ring-2 ring-green-400 bg-green-100';
         }
@@ -488,15 +528,15 @@ const BackgammonBoard: React.FC = () => {
         return '';
     };
 
-    // In renderPoint, use effectiveState and isMyTurn
+    // In renderPoint, use displayState and isMyTurn
     const renderPoint = (pointIndex: number, isTopRow: boolean) => {
-        const pieces = effectiveState.board[pointIndex];
+        const pieces = displayState.board[pointIndex];
         const highlight = getPointHighlight(pointIndex);
-        const isCurrentPlayerPiece = (effectiveState.currentPlayer === 'white' && pieces > 0) ||
-            (effectiveState.currentPlayer === 'black' && pieces < 0);
-        const hasValidMoves = effectiveState.possibleMoves.some(move => move.from === pointIndex);
+        const isCurrentPlayerPiece = (displayState.currentPlayer === 'white' && pieces > 0) ||
+            (displayState.currentPlayer === 'black' && pieces < 0);
+        const hasValidMoves = displayState.possibleMoves.some(move => move.from === pointIndex);
         // Only allow drag if it's my turn
-        const canDrag = Boolean(isMyTurn && isCurrentPlayerPiece && hasValidMoves && effectiveState.gamePhase === 'playing');
+        const canDrag = Boolean(isMyTurn && isCurrentPlayerPiece && hasValidMoves && displayState.gamePhase === 'playing');
         return (
             <Point
                 key={`point-${pointIndex}`}
@@ -523,21 +563,21 @@ const BackgammonBoard: React.FC = () => {
     const getPipCount = (player: Player) => {
         let pipSum = 0;
         for (let i = 0; i < 24; i++) {
-            const n = effectiveState.board[i];
+            const n = displayState.board[i];
             if (player === 'white' && n > 0) pipSum += n * (i + 1);
             if (player === 'black' && n < 0) pipSum += -n * (24 - i);
         }
         // Add bar checkers: white bar = 25, black bar = 25
-        if (player === 'white') pipSum += effectiveState.bar.white * 25;
-        if (player === 'black') pipSum += effectiveState.bar.black * 25;
+        if (player === 'white') pipSum += displayState.bar.white * 25;
+        if (player === 'black') pipSum += displayState.bar.black * 25;
         return pipSum;
     };
 
     // Render the home area for a player
     const renderHome = (player: Player) => {
         const isDraggingOwnChecker = draggedPiece && draggedPiece.player === player;
-        const canBearOffNow = canBearOff(effectiveState.currentPlayer, effectiveState.board) && effectiveState.currentPlayer === player;
-        const hasValidBearOffMoves = effectiveState.possibleMoves.some(move => move.to === -2 && (!draggedPiece || move.from === draggedPiece.fromPoint));
+        const canBearOffNow = canBearOff(displayState.currentPlayer, displayState.board) && displayState.currentPlayer === player;
+        const hasValidBearOffMoves = displayState.possibleMoves.some(move => move.to === -2 && (!draggedPiece || move.from === draggedPiece.fromPoint));
         return (
             <Home
                 player={player}
@@ -589,11 +629,11 @@ const BackgammonBoard: React.FC = () => {
     // In handlePointClick, add strict dice check at the top
     const handlePointClick = (pointIndex: number) => {
         // Prevent any moves if all dice are used
-        if (!effectiveState.dice || effectiveState.usedDice.every(u => u)) return;
+        if (!displayState.dice || displayState.usedDice.every(u => u)) return;
 
         // Only consider moves using unused dice
-        const unusedDice = effectiveState.dice.filter((_, idx) => !effectiveState.usedDice[idx]);
-        let possibleMoves = effectiveState.possibleMoves.filter(move =>
+        const unusedDice = displayState.dice.filter((_, idx) => !displayState.usedDice[idx]);
+        let possibleMoves = displayState.possibleMoves.filter(move =>
             move.from === pointIndex && unusedDice.includes(move.dice)
         );
         // Deduplicate possibleMoves by from, to, dice
@@ -603,25 +643,25 @@ const BackgammonBoard: React.FC = () => {
         if (possibleMoves.length === 1) {
             const move = possibleMoves[0];
             // For doubles, ensure we use the first unused die of the correct value
-            if (effectiveState.dice && effectiveState.dice.filter((d, i) => !effectiveState.usedDice[i] && d === move.dice).length > 0) {
+            if (displayState.dice && displayState.dice.filter((d, i) => !displayState.usedDice[i] && d === move.dice).length > 0) {
                 // Find the first unused die index of this value
-                const dieIdx = effectiveState.dice.findIndex((d, i) => !effectiveState.usedDice[i] && d === move.dice);
+                const dieIdx = displayState.dice.findIndex((d, i) => !displayState.usedDice[i] && d === move.dice);
                 if (dieIdx !== -1) {
                     // Mark only that die as used in makeMove
-                    makeMove(move.from, move.to, effectiveState.dice[dieIdx]);
+                    queueMove(move.from, move.to, displayState.dice[dieIdx]);
                     setSelectedPoint(null);
                     return;
                 }
             }
             // Fallback (shouldn't happen):
-            makeMove(move.from, move.to, move.dice);
+            queueMove(move.from, move.to, move.dice);
             setSelectedPoint(null);
             return;
         }
 
         // If a checker is already selected and user clicks a valid destination, perform the move
         if (selectedPoint !== null && selectedPoint !== pointIndex) {
-            const possibleMovesFromSelected = effectiveState.possibleMoves.filter(move =>
+            const possibleMovesFromSelected = displayState.possibleMoves.filter(move =>
                 move.from === selectedPoint && move.to === pointIndex && unusedDice.includes(move.dice)
             );
             if (possibleMovesFromSelected.length > 0) {
@@ -630,15 +670,15 @@ const BackgammonBoard: React.FC = () => {
                     const bearOffMove = possibleMovesFromSelected.find(m => m.to === -2);
                     if (bearOffMove) move = bearOffMove;
                 }
-                if (effectiveState.dice && effectiveState.dice.filter((d, i) => !effectiveState.usedDice[i] && d === move.dice).length > 0) {
-                    const dieIdx = effectiveState.dice.findIndex((d, i) => !effectiveState.usedDice[i] && d === move.dice);
+                if (displayState.dice && displayState.dice.filter((d, i) => !displayState.usedDice[i] && d === move.dice).length > 0) {
+                    const dieIdx = displayState.dice.findIndex((d, i) => !displayState.usedDice[i] && d === move.dice);
                     if (dieIdx !== -1) {
-                        makeMove(move.from, move.to, effectiveState.dice[dieIdx]);
+                        queueMove(move.from, move.to, displayState.dice[dieIdx]);
                         setSelectedPoint(null);
                         return;
                     }
                 }
-                makeMove(move.from, move.to, move.dice);
+                queueMove(move.from, move.to, move.dice);
                 setSelectedPoint(null);
                 return;
             }
@@ -654,15 +694,15 @@ const BackgammonBoard: React.FC = () => {
         if (possibleMoves.length > 1) {
             const bearOffMove = possibleMoves.find(move => move.to === -2);
             if (bearOffMove) {
-                if (effectiveState.dice && effectiveState.dice.filter((d, i) => !effectiveState.usedDice[i] && d === bearOffMove.dice).length > 0) {
-                    const dieIdx = effectiveState.dice.findIndex((d, i) => !effectiveState.usedDice[i] && d === bearOffMove.dice);
+                if (displayState.dice && displayState.dice.filter((d, i) => !displayState.usedDice[i] && d === bearOffMove.dice).length > 0) {
+                    const dieIdx = displayState.dice.findIndex((d, i) => !displayState.usedDice[i] && d === bearOffMove.dice);
                     if (dieIdx !== -1) {
-                        makeMove(bearOffMove.from, bearOffMove.to, effectiveState.dice[dieIdx]);
+                        queueMove(bearOffMove.from, bearOffMove.to, displayState.dice[dieIdx]);
                         setSelectedPoint(null);
                         return;
                     }
                 }
-                makeMove(bearOffMove.from, bearOffMove.to, bearOffMove.dice);
+                queueMove(bearOffMove.from, bearOffMove.to, bearOffMove.dice);
                 setSelectedPoint(null);
                 return;
             }
