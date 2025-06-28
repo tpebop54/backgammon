@@ -84,6 +84,49 @@ const BackgammonBoard: React.FC = () => {
     // --- Multiplayer: Only allow controls for the current player ---
     const isMyTurn = !!playerColor && effectiveState.currentPlayer === playerColor && effectiveState.gamePhase === 'playing';
 
+    // --- 30-second countdown timers for each player ---
+    const TIMER_DURATION = 30;
+    const [timers, setTimers] = useState<{ white: number; black: number }>({ white: TIMER_DURATION, black: TIMER_DURATION });
+    const [timerActive, setTimerActive] = useState(false);
+    const [lastPlayer, setLastPlayer] = useState<Player | null>(null);
+
+    // Reset timer when turn changes
+    useEffect(() => {
+        if (effectiveState.currentPlayer !== lastPlayer) {
+            setTimers(prev => ({ ...prev, [effectiveState.currentPlayer]: TIMER_DURATION }));
+            setLastPlayer(effectiveState.currentPlayer);
+        }
+    }, [effectiveState.currentPlayer, lastPlayer]);
+
+    // Countdown effect for current player
+    useEffect(() => {
+        if (winner || effectiveState.gamePhase !== 'playing') return;
+        setTimerActive(true);
+        const current = effectiveState.currentPlayer;
+        if (!isMyTurn) return;
+        const interval = setInterval(() => {
+            setTimers(prev => {
+                if (prev[current] > 0) {
+                    return { ...prev, [current]: prev[current] - 1 };
+                }
+                return prev;
+            });
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [isMyTurn, effectiveState.currentPlayer, effectiveState.gamePhase, winner]);
+
+    // Timer display component
+    const TimerDisplay = ({ player }: { player: Player }) => {
+        const t = timers[player];
+        const isActive = effectiveState.currentPlayer === player && effectiveState.gamePhase === 'playing';
+        return (
+            <div className={`flex flex-col items-${player === 'black' ? 'start' : 'end'} w-24`}>
+                <span className="text-xs font-semibold text-gray-700 mb-1">{player === 'black' ? 'Black' : 'White'} Timer</span>
+                <span className={`text-2xl font-mono font-bold ${isActive && t <= 10 ? 'text-red-600' : 'text-gray-900'} ${isActive ? '' : 'opacity-60'}`}>{t}s</span>
+            </div>
+        );
+    };
+
     // --- Handler and helper function declarations ---
     // Memoize canBearOff to avoid unnecessary recalculations
     const canBearOff = useCallback((player: Player, board: number[]): boolean => {
@@ -228,6 +271,19 @@ const BackgammonBoard: React.FC = () => {
 
     // --- End handler and helper function declarations ---
 
+    // Handle timer reaching 0: clear pending moves, reset preview state, and send timeout/pass move to server
+    useEffect(() => {
+        if (winner || effectiveState.gamePhase !== 'playing') return;
+        const current = effectiveState.currentPlayer;
+        if (timers[current] === 0 && isMyTurn) {
+            // Clear pending moves and preview state
+            setPendingMoves([]);
+            setLocalState(null);
+            // Send a timeout/pass move to the server
+            sendMove({ from: -1, to: -1, dice: -1 });
+        }
+    }, [timers, effectiveState.currentPlayer, effectiveState.gamePhase, isMyTurn, winner, sendMove]);
+
     // Automatically roll dice at the start of the first turn only
     useEffect(() => {
         const state = gameState;
@@ -303,12 +359,14 @@ const BackgammonBoard: React.FC = () => {
     // Confirm all pending moves
     const handleConfirmMoves = () => {
         if (pendingMoves.length === 0) return;
-        // Send all moves to server
-        for (const move of pendingMoves) {
-            sendMove(move);
-        }
+        // Clear pending moves and local state before sending to prevent double-sending
+        const movesToSend = [...pendingMoves];
         setPendingMoves([]);
         setLocalState(null);
+        // Send all moves to server
+        for (const move of movesToSend) {
+            sendMove(move);
+        }
     };
 
     // Undo last pending move
@@ -579,7 +637,13 @@ const BackgammonBoard: React.FC = () => {
         // Add bar checkers: white bar = 25, black bar = 25
         if (player === 'white') pipSum += displayState.bar.white * 25;
         if (player === 'black') pipSum += displayState.bar.black * 25;
-        return pipSum;
+        // If all checkers are borne off, pip count is 0
+        if (
+            displayState.home[player] === (player === 'white' ? initialWhiteCheckers : initialBlackCheckers)
+        ) {
+            return 0;
+        }
+        return Math.max(0, pipSum);
     };
 
     // Render the home area for a player
@@ -721,6 +785,30 @@ const BackgammonBoard: React.FC = () => {
         setInvalidDropFeedback(null);
     };
 
+    // --- Timer timeout: if timer reaches 0, auto-end turn and discard pending moves ---
+    const [timeoutSent, setTimeoutSent] = useState(false);
+    useEffect(() => {
+        if (!isMyTurn || winner || effectiveState.gamePhase !== 'playing') return;
+        const current = effectiveState.currentPlayer;
+        if (timers[current] === 0 && !timeoutSent) {
+            // Discard any pending moves and reset preview
+            setPendingMoves([]);
+            setLocalState(null);
+            // Only send if there are unused dice (i.e., turn not already ended)
+            if (effectiveState.dice && effectiveState.usedDice.some(u => !u)) {
+                sendMove({ from: -1, to: -1, dice: -1 }); // Use -1 for pass/timeout for server compatibility
+            }
+            // Reset timer for current player to 30s
+            setTimers(prev => ({ ...prev, [current]: 30 }));
+            setTimeoutSent(true);
+        }
+    }, [timers, isMyTurn, winner, effectiveState, sendMove, timeoutSent]);
+
+    // Reset timeoutSent when turn changes
+    useEffect(() => {
+        setTimeoutSent(false);
+    }, [effectiveState.currentPlayer]);
+
     return (
         <div className="flex flex-col items-center p-8 bg-amber-100 min-h-screen">
             {/* New Game button at the top */}
@@ -764,6 +852,13 @@ const BackgammonBoard: React.FC = () => {
                 canConfirm={canConfirm}
                 showNewGame={!!winner}
             />
+
+            {/* Timers row */}
+            <div className="w-full flex flex-row justify-between items-center mb-2 px-2">
+                <TimerDisplay player="black" />
+                <div className="flex-1" />
+                <TimerDisplay player="white" />
+            </div>
 
             {/* Consistent height container for winner and board */}
             <div className="w-full flex flex-col items-center justify-center h-[700px] overflow-hidden relative">
@@ -831,7 +926,7 @@ const BackgammonBoard: React.FC = () => {
                                 style={{ width: 80 }}
                             >
                                 <div style={{ transform: 'scale(0.7)', width: '100%' }}>
-                                    <Dice dice={diceToShow} usedDice={usedDiceToShow} />
+                                    <Dice dice={diceToShow} usedDice={usedDiceToShow} disabled={!isMyTurn} />
                                 </div>
                             </div>
                         )}
