@@ -84,6 +84,49 @@ const BackgammonBoard: React.FC = () => {
     // --- Multiplayer: Only allow controls for the current player ---
     const isMyTurn = !!playerColor && effectiveState.currentPlayer === playerColor && effectiveState.gamePhase === 'playing';
 
+    // --- 30-second countdown timers for each player ---
+    const TIMER_DURATION = 30;
+    const [timers, setTimers] = useState<{ white: number; black: number }>({ white: TIMER_DURATION, black: TIMER_DURATION });
+    const [timerActive, setTimerActive] = useState(false);
+    const [lastPlayer, setLastPlayer] = useState<Player | null>(null);
+
+    // Reset timer when turn changes
+    useEffect(() => {
+        if (effectiveState.currentPlayer !== lastPlayer) {
+            setTimers(prev => ({ ...prev, [effectiveState.currentPlayer]: TIMER_DURATION }));
+            setLastPlayer(effectiveState.currentPlayer);
+        }
+    }, [effectiveState.currentPlayer, lastPlayer]);
+
+    // Countdown effect for current player
+    useEffect(() => {
+        if (winner || effectiveState.gamePhase !== 'playing') return;
+        setTimerActive(true);
+        const current = effectiveState.currentPlayer;
+        if (!isMyTurn) return;
+        const interval = setInterval(() => {
+            setTimers(prev => {
+                if (prev[current] > 0) {
+                    return { ...prev, [current]: prev[current] - 1 };
+                }
+                return prev;
+            });
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [isMyTurn, effectiveState.currentPlayer, effectiveState.gamePhase, winner]);
+
+    // Timer display component
+    const TimerDisplay = ({ player }: { player: Player }) => {
+        const t = timers[player];
+        const isActive = effectiveState.currentPlayer === player && effectiveState.gamePhase === 'playing';
+        return (
+            <div className={`flex flex-col items-${player === 'black' ? 'start' : 'end'} w-24`}>
+                <span className="text-xs font-semibold text-gray-700 mb-1">{player === 'black' ? 'Black' : 'White'} Timer</span>
+                <span className={`text-2xl font-mono font-bold ${isActive && t <= 10 ? 'text-red-600' : 'text-gray-900'} ${isActive ? '' : 'opacity-60'}`}>{t}s</span>
+            </div>
+        );
+    };
+
     // --- Handler and helper function declarations ---
     // Memoize canBearOff to avoid unnecessary recalculations
     const canBearOff = useCallback((player: Player, board: number[]): boolean => {
@@ -764,6 +807,13 @@ const BackgammonBoard: React.FC = () => {
                 canConfirm={canConfirm}
                 showNewGame={!!winner}
             />
+
+            {/* Timers row */}
+            <div className="w-full flex flex-row justify-between items-center mb-2 px-2">
+                <TimerDisplay player="black" />
+                <div className="flex-1" />
+                <TimerDisplay player="white" />
+            </div>
 
             {/* Consistent height container for winner and board */}
             <div className="w-full flex flex-col items-center justify-center h-[700px] overflow-hidden relative">
