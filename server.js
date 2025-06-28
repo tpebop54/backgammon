@@ -140,9 +140,10 @@ function handleMakeMoves(roomId, moves, playerColor, isServerTimeout = false) {
                 newBoard[to] -= 1;
             }
         }
-        // Update used dice
+        // Update used dice (fix for doubles: only mark one die as used per move)
         let diceIndex = -1;
         if (dice) {
+            // Only mark the first unused die matching moveDice as used
             for (let i = 0; i < dice.length; i++) {
                 if (dice[i] === moveDice && !newUsedDice[i]) {
                     diceIndex = i;
