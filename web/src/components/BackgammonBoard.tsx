@@ -786,10 +786,11 @@ const BackgammonBoard: React.FC = () => {
     };
 
     // --- Timer timeout: if timer reaches 0, auto-end turn and discard pending moves ---
+    const [timeoutSent, setTimeoutSent] = useState(false);
     useEffect(() => {
         if (!isMyTurn || winner || effectiveState.gamePhase !== 'playing') return;
         const current = effectiveState.currentPlayer;
-        if (timers[current] === 0) {
+        if (timers[current] === 0 && !timeoutSent) {
             // Discard any pending moves and reset preview
             setPendingMoves([]);
             setLocalState(null);
@@ -797,8 +798,16 @@ const BackgammonBoard: React.FC = () => {
             if (effectiveState.dice && effectiveState.usedDice.some(u => !u)) {
                 sendMove({ from: -1, to: -1, dice: -1 }); // Use -1 for pass/timeout for server compatibility
             }
+            // Reset timer for current player to 30s
+            setTimers(prev => ({ ...prev, [current]: 30 }));
+            setTimeoutSent(true);
         }
-    }, [timers, isMyTurn, winner, effectiveState, sendMove]);
+    }, [timers, isMyTurn, winner, effectiveState, sendMove, timeoutSent]);
+
+    // Reset timeoutSent when turn changes
+    useEffect(() => {
+        setTimeoutSent(false);
+    }, [effectiveState.currentPlayer]);
 
     return (
         <div className="flex flex-col items-center p-8 bg-amber-100 min-h-screen">
