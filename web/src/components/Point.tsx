@@ -71,9 +71,9 @@ const Point: React.FC<PointProps> = ({
       <div
         key={i}
         draggable={canDrag}
-        onClick={() => handlePointClick(pointIndex)}
-        onDragStart={(e) => handleDragStart(e, pointIndex, i)}
-        onDragEnd={handleDragEnd}
+        onClick={isCurrentPlayerPiece && canDrag ? () => handlePointClick(pointIndex) : undefined}
+        onDragStart={isCurrentPlayerPiece && canDrag ? (e) => handleDragStart(e, pointIndex, i) : undefined}
+        onDragEnd={isCurrentPlayerPiece && canDrag ? handleDragEnd : undefined}
         className={`absolute left-1/2 -translate-x-1/2 w-8 h-8 rounded-full border-2 ${player === 'white' ? 'bg-white border-gray-800' : 'bg-gray-800 border-white'} select-none transition-transform ${canDrag ? 'cursor-move hover:scale-110 z-10' : 'cursor-pointer'}`}
         style={{
           userSelect: 'none',
@@ -94,9 +94,9 @@ const Point: React.FC<PointProps> = ({
       <div
         key={`overflow-${pointIndex}`}
         draggable={canDrag}
-        onClick={() => handlePointClick(pointIndex)}
-        onDragStart={(e) => handleDragStart(e, pointIndex, i)}
-        onDragEnd={handleDragEnd}
+        onClick={isCurrentPlayerPiece && canDrag ? () => handlePointClick(pointIndex) : undefined}
+        onDragStart={isCurrentPlayerPiece && canDrag ? (e) => handleDragStart(e, pointIndex, i) : undefined}
+        onDragEnd={isCurrentPlayerPiece && canDrag ? handleDragEnd : undefined}
         className={`absolute left-1/2 -translate-x-1/2 w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold ${player === 'white' ? 'bg-white border-gray-800 text-gray-800' : 'bg-gray-800 border-white text-white'} select-none transition-transform ${canDrag ? 'cursor-move hover:scale-110 z-10' : 'cursor-pointer'}`}
         style={{
           userSelect: 'none',
@@ -114,7 +114,7 @@ const Point: React.FC<PointProps> = ({
   return (
     <div
       className={`w-12 h-40 ${pointIndex % 2 === 0 ? 'bg-amber-600' : 'bg-amber-800'} ${isTopRow ? 'flex flex-col' : 'flex flex-col-reverse'} items-center justify-start p-1 cursor-pointer hover:bg-yellow-400 transition-colors ${highlight} relative`}
-      onClick={() => handlePointClick(pointIndex)}
+      onClick={isCurrentPlayerPiece && canDrag ? () => handlePointClick(pointIndex) : undefined}
       onDragOver={(e) => handleDragOver(e, pointIndex)}
       onDragLeave={handleDragLeave}
       onDrop={(e) => handleDrop(e, pointIndex)}
