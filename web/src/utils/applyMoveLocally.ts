@@ -9,8 +9,8 @@ export function applyMoveLocally(state: GameState, move: { from: number; to: num
     const newBar = { ...state.bar };
     const newHome = { ...state.home };
     const newUsedDice = [...state.usedDice];
-    // Find the die index to use (first unused die of this value)
-    const dieIdx = state.dice?.findIndex((d: number, i: number) => !state.usedDice[i] && d === move.dice) ?? -1;
+    // Find the die index to use (first unused die of this value, using newUsedDice for correct preview)
+    const dieIdx = state.dice?.findIndex((d: number, i: number) => !newUsedDice[i] && d === move.dice) ?? -1;
     if (dieIdx === -1) return state; // No available die
     newUsedDice[dieIdx] = true;
     // Move checker on the board or from the bar

@@ -269,6 +269,15 @@ const BackgammonBoard: React.FC = () => {
     // Use localState if pendingMoves exist, else effectiveState
     const displayState = localState || effectiveState;
 
+    // For dice preview: show localState.dice/usedDice for the current player if there are pending moves, otherwise show effectiveState
+    const diceToShow = (pendingMoves.length > 0 && isMyTurn && localState) ? localState.dice : effectiveState.dice;
+    const usedDiceToShow = (pendingMoves.length > 0 && isMyTurn && localState) ? localState.usedDice : effectiveState.usedDice;
+
+    // Confirm button logic: only enable if all dice are used or no possible moves left
+    const allDiceUsed = displayState.dice ? displayState.usedDice.every(u => u) : false;
+    const noMovesLeft = displayState.possibleMoves.length === 0;
+    const canConfirm = pendingMoves.length > 0 && (allDiceUsed || noMovesLeft);
+
     // When a move is made (drag/drop), validate and queue it locally
     const queueMove = (from: number, to: number, dice: number, checkerIndex: number | null = null) => {
         // Start from the last local state or effectiveState
@@ -752,7 +761,7 @@ const BackgammonBoard: React.FC = () => {
                 onConfirm={handleConfirmMoves}
                 onNewGame={handleNewGame}
                 canUndo={pendingMoves.length > 0}
-                canConfirm={pendingMoves.length > 0}
+                canConfirm={canConfirm}
                 showNewGame={!!winner}
             />
 
@@ -812,7 +821,7 @@ const BackgammonBoard: React.FC = () => {
                     {/* Board */}
                     <div className="border-4 border-amber-900 bg-amber-200 p-4 shadow-2xl relative overflow-hidden">
                         {/* Dice overlay on board, centered vertically and horizontally on player's half */}
-                        {effectiveState.dice && (
+                        {diceToShow && (
                             <div
                                 className={`absolute top-1/2 z-20 pointer-events-none transition-all duration-200 ` +
                                     (effectiveState.currentPlayer === 'black'
@@ -822,7 +831,7 @@ const BackgammonBoard: React.FC = () => {
                                 style={{ width: 80 }}
                             >
                                 <div style={{ transform: 'scale(0.7)', width: '100%' }}>
-                                    <Dice dice={effectiveState.dice} usedDice={effectiveState.usedDice} />
+                                    <Dice dice={diceToShow} usedDice={usedDiceToShow} />
                                 </div>
                             </div>
                         )}
